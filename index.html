@@ -6659,10 +6659,27 @@ function installPasswordEyes(){
 }
 
 /* ---------- 2. Forgot Password: Send Email -> OTP -> Verify -> Update ---------- */
-window.openErecpassForgotPassword=function(){
+window.openErecpassForgotPassword=async function(){
+  let recoverySession=false;
+  try{
+    if(window.erecpassSupabase?.auth){
+      const sessionResult=await window.erecpassSupabase.auth.getSession();
+      recoverySession=!!sessionResult.data?.session && /type=recovery/.test(location.hash);
+    }
+  }catch(e){ console.warn('Could not check password recovery session:',e); }
+
+  if(recoverySession){
+    epModal('erecpassForgotModal','Update Password',
+      '<p style="color:#8fb9b5;font-size:11px">Your recovery link is verified. Choose a new password.</p>'+
+      '<label>New Password</label><input id="epResetNewPass" type="password" autocomplete="new-password">'+
+      '<label>Confirm Password</label><input id="epResetNewPass2" type="password" autocomplete="new-password">'+
+      '<div class="erecpass-added-actions"><button type="button" onclick="verifyErecpassPasswordReset()">Update Password</button></div>');
+    return;
+  }
+
   epModal('erecpassForgotModal','Forgot Password',
-    '<p style="color:#8fb9b5;font-size:11px">Enter the email registered to the patient account.</p>'+
-    '<label>Email</label><input id="epResetEmail" type="email" placeholder="patient@example.com">'+
+    '<p style="color:#8fb9b5;font-size:11px">Enter your registered email. We will send a secure password-reset link.</p>'+
+    '<label>Email</label><input id="epResetEmail" type="email" autocomplete="email" placeholder="patient@example.com">'+
     '<div class="erecpass-added-actions"><button type="button" onclick="sendErecpassPasswordReset()">Send to Email</button></div>'+
     '<div id="epResetStep" style="margin-top:12px"></div>');
 };
@@ -6670,51 +6687,31 @@ window.openErecpassForgotPassword=function(){
 window.sendErecpassPasswordReset=async function(){
   const email=(document.getElementById('epResetEmail')||{}).value?.trim().toLowerCase();
   if(!email){ alert('Enter your email.'); return; }
-
-  /* Prefer Supabase Auth when configured. */
-  let cloudRequested=false;
+  if(!window.erecpassSupabase?.auth){ alert('Secure password reset is unavailable because Supabase Auth is not connected.'); return; }
   try{
-    if(window.erecpassSupabase && erecpassSupabase.auth){
-      const r=await erecpassSupabase.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
-      if(!r.error) cloudRequested=true;
-    }
-  }catch(e){ console.warn('Supabase reset request:',e); }
-
-  const p=epPatients().find(x=>(x.email||'').toLowerCase()===email);
-  if(!p && !cloudRequested){ alert('No patient account was found for that email.'); return; }
-
-  const otp=String(Math.floor(100000+Math.random()*900000));
-  epSet('ERECPASS_PASSWORD_RESET',{
-    email:email,otp:otp,verified:false,expires:Date.now()+10*60*1000
-  });
-
-  const step=document.getElementById('epResetStep');
-  if(step) step.innerHTML=
-    '<p style="color:#8fb9b5;font-size:11px">'+
-    (cloudRequested?'Supabase password-reset email requested.':'Reset request created.')+
-    ' For the OTP step, enter the 6-digit code delivered by your configured email/OTP service.</p>'+
-    '<label>OTP</label><input id="epResetOtp" maxlength="6" inputmode="numeric" placeholder="6-digit OTP">'+
-    '<label>New Password</label><input id="epResetNewPass" type="password" placeholder="New password">'+
-    '<label>Confirm Password</label><input id="epResetNewPass2" type="password" placeholder="Confirm password">'+
-    '<div class="erecpass-added-actions"><button type="button" onclick="verifyErecpassPasswordReset()">Verify</button></div>';
+    const r=await window.erecpassSupabase.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
+    if(r.error) throw r.error;
+    const step=document.getElementById('epResetStep');
+    if(step) step.innerHTML='<p style="color:#8fb9b5;font-size:11px">If an account exists for this email, a secure reset link has been requested. Check your inbox and Spam/Junk folder. Open the link, return to ERecPass, then choose Forgot Password again to set your new password.</p>';
+  }catch(e){ alert('Could not send reset link: '+(e.message||'Please try again.')); }
 };
 
-window.verifyErecpassPasswordReset=function(){
-  const r=epGet('ERECPASS_PASSWORD_RESET',null);
-  if(!r || Date.now()>Number(r.expires)){ alert('OTP expired. Please send a new reset request.'); return; }
-  const otp=document.getElementById('epResetOtp')?.value.trim();
+window.verifyErecpassPasswordReset=async function(){
   const p1=document.getElementById('epResetNewPass')?.value||'';
   const p2=document.getElementById('epResetNewPass2')?.value||'';
-  if(otp!==r.otp){ alert('Invalid OTP.'); return; }
-  if(!p1 || p1!==p2){ alert('Passwords do not match.'); return; }
-
-  const patients=epPatients();
-  const p=patients.find(x=>(x.email||'').toLowerCase()===r.email);
-  if(!p){ alert('Patient account not found in the local profile database.'); return; }
-  p.password=p1; p.active=(p.active===false)?false:true;
-  if(typeof DB_KEYS!=='undefined') epSet(DB_KEYS.PATIENTS,patients);
-  epStore.removeItem('ERECPASS_PASSWORD_RESET');
-  alert('Password updated successfully. You can now log in.');
+  if(p1.length<8){ alert('Use at least 8 characters for the new password.'); return; }
+  if(!/[#!?]/.test(p1)){ alert('Password must contain at least one of these symbols: # ! ?'); return; }
+  if(p1!==p2){ alert('Passwords do not match.'); return; }
+  if(!window.erecpassSupabase?.auth){ alert('Secure password reset is unavailable.'); return; }
+  try{
+    const sessionResult=await window.erecpassSupabase.auth.getSession();
+    if(!sessionResult.data?.session){ alert('Open the password-reset link sent to your email first, then return here and choose Forgot Password again.'); return; }
+    const result=await window.erecpassSupabase.auth.updateUser({password:p1});
+    if(result.error) throw result.error;
+    history.replaceState(null,document.title,location.pathname+location.search);
+    document.getElementById('erecpassForgotModal')?.classList.remove('active');
+    alert('Password updated successfully. You can now log in with the new password.');
+  }catch(e){ alert('Could not update password: '+(e.message||'Please request a new reset link.')); }
 };
 
 /* ---------- 3. Login: Supabase first, existing local login remains fallback ---------- */
