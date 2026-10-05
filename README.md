@@ -1,25 +1,29 @@
-# ERecPass — Hospital Mobile Application
+# ERecPass — Hospital Portal
 
-ERecPass is the hospital portal project. The Supabase project and database schema have been created, but the original app HTML has **not yet been committed to this repository**, and its localStorage operations have not yet been migrated to Supabase. Do not treat the app as production-ready until those steps and security testing are complete.
+ERecPass is a hospital portal with a Supabase-backed data layer. The app UI is in `index.html`; `supabase-runtime.js` handles Supabase Auth, cloud data loading/saving, and Realtime refreshes.
 
 ## Backend
-- Supabase project URL: `https://bfboehvgrivanmrfqquw.supabase.co`
-- Region: Southeast Asia (Singapore)
-- Tables created: `profiles`, `patients`, `staff`, `appointments`, `announcements`, `help_center_messages`, `activity_logs`, `app_settings`
-- Row Level Security (RLS) is enabled on all eight tables.
+- Supabase URL: `https://bfboehvgrivanmrfqquw.supabase.co`
+- Tables: `profiles`, `patients`, `staff`, `appointments`, `announcements`, `help_center_messages`, `activity_logs`, `app_settings`
+- RLS is enabled. Browser code uses the publishable key only.
+- GitHub Pages deployment workflow: `.github/workflows/pages.yml`
 
-## Configure the browser client
-1. In Supabase, open **Project Settings → API** and copy the **publishable key** (or legacy anon key).
-2. Put that key in `supabase-client.js` where indicated.
-3. Include the Supabase v2 CDN script and `supabase-client.js` in the app HTML before any code that uses `window.erecpassSupabase`.
-4. Never put a `service_role` or secret key in browser code or GitHub.
+## First-time admin setup
+The database currently has no Supabase Auth users. Register a patient account in the app (confirm the email if required), then promote your trusted admin email in Supabase SQL Editor:
 
-## Important next steps
-- Commit the app's actual `index.html` and assets. The repository currently has no app entry point.
-- Connect sign-up/login to Supabase Auth.
-- Migrate patient, staff, appointment, lab, medication, announcement, and Help Center reads/writes from localStorage to Supabase.
-- Test RLS using separate patient, staff, and admin accounts before real patient data is used.
-- Enable GitHub Pages after `index.html` is present.
+```sql
+update public.profiles p
+set role = 'admin', active = true
+from auth.users u
+where p.id = u.id
+  and lower(u.email) = lower('YOUR_ADMIN_EMAIL@example.com');
+```
 
-## GitHub Pages
-After the app files are committed, open **Settings → Pages**, choose **Deploy from a branch**, select `main` and `/ (root)`, and save.
+Replace the example email before running. Never allow an untrusted user to be assigned the admin role.
+
+For setup details, staff provisioning, and known limitations, see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
+
+## Safety status
+The app's browser storage has been replaced with an in-memory cache and Supabase-backed operations. This is not yet a production-ready clinical system: existing demo data has not been migrated, admin account provisioning/deletion needs a server-side endpoint, and end-to-end tests with separate patient/staff/admin accounts are still required. Use fake patient data only until authorization, appointments, file uploads, and account workflows are fully tested.
+
+**Never commit or expose a Supabase secret/service-role key. Rotate the key previously shared in chat.**
