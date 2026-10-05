@@ -12,21 +12,13 @@
 ## Main Admin and account setup
 - A database constraint now permits **at most one** profile with the `admin` role. This prevents a second admin role from being assigned while another admin exists.
 - At the last check, Supabase Auth had **0 users** and `profiles` had **0 admin profiles**. There is currently no First Admin Auth account to permanently delete; deleting a non-existent account is not possible.
+- The Auth signup trigger is configured so only the exact email `admin2@hospital.com` receives the `admin` role on signup. Other new signups receive `patient`. The unique database index blocks a second admin role.
 - Register/create the account intended to be the Second/Main Admin, then promote that exact trusted email using the SQL below. Do not give the admin role to any other account.
 
 ## First-time setup required
 1. In Supabase **Authentication → Providers → Email**, choose whether email confirmation is enabled. If enabled, users must confirm their email before logging in.
-2. Create the first admin account through Supabase Auth (or register a patient account in the app first).
-3. In **SQL Editor**, promote that exact email to admin. Replace the example email before running:
-   ```sql
-   update public.profiles p
-   set role = 'admin', active = true
-   from auth.users u
-   where p.id = u.id
-     and lower(u.email) = lower('YOUR_ADMIN_EMAIL@example.com');
-   ```
-   Run this only for the trusted administrator account you control. The app intentionally does not let users choose their own role.
-4. Create staff Auth users through **Authentication → Users → Add user**, then assign their role and link their staff row in SQL. Replace the email and UUID with the actual user:
+2. Register `admin2@hospital.com` through the app and confirm the email if confirmation is enabled. The signup trigger assigns the admin role to this exact email; all other users receive the patient role. The app does not let users choose their own role.
+3. Create staff Auth users through **Authentication → Users → Add user**, then assign their role and link their staff row in SQL. Replace the email and UUID with the actual user:
    ```sql
    update public.profiles p
    set role = 'staff', active = true
@@ -40,7 +32,7 @@
    where id = 'STAFF_ROW_ID';
    ```
    Ensure a staff row with that ID exists first.
-5. Open **Settings → Pages** in GitHub and confirm Pages is enabled for the repository. The workflow file deploys from GitHub Actions.
+4. Open **Settings → Pages** in GitHub and confirm Pages is enabled for the repository. The workflow file deploys from GitHub Actions.
 
 ## Current limitations — do not use real patient data yet
 - Existing demo/local browser data has not been imported into Supabase. No plaintext demo passwords were migrated.
