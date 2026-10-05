@@ -22,7 +22,7 @@
       auth: {
         persistSession: false,
         autoRefreshToken: true,
-        detectSessionInUrl: false
+        detectSessionInUrl: true
       }
     }
   );
