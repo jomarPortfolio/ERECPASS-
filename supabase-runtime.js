@@ -89,5 +89,46 @@
   window.logout=async function(){try{if(sb())await sb().auth.signOut()}catch(e){err('sign out',e)}if(channel&&sb())await sb().removeChannel(channel);channel=null;user=null;role='anon';currentSession=null;put(K.X,null);[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));['patientApp','staffApp','adminApp'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));showLogin()};
   const oldOnload=window.onload;window.onload=async function(e){try{await hydrate()}catch(x){err('startup',x)}if(typeof oldOnload==='function')return oldOnload.call(this,e)};
   document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('staffLoginName');if(i){i.type='email';i.placeholder='Enter staff email'}const l=document.querySelector('#staffLoginForm label');if(l)l.textContent='Staff Email';const a=document.getElementById('adminLoginUser');if(a)a.placeholder='admin@example.com'});
+
+  window.openErecpassForgotPassword=function(){
+    epModal('erecpassForgotModal','Forgot Password',
+      '<p style="color:#8fb9b5;font-size:11px">Enter your registered email. Supabase will send a secure password-reset link.</p>'+
+      '<label>Email</label><input id="epResetEmail" type="email" placeholder="patient@example.com">'+
+      '<div class="erecpass-added-actions"><button type="button" onclick="sendErecpassPasswordReset()">Send to Email</button></div>'+
+      '<div id="epResetStep" style="margin-top:12px"></div>');
+  };
+  window.sendErecpassPasswordReset=async function(){
+    const email=document.getElementById('epResetEmail')?.value.trim().toLowerCase();
+    if(!email){alert('Enter your registered email.');return}
+    try{
+      const redirectTo=window.location.origin+window.location.pathname;
+      const r=await sb().auth.resetPasswordForEmail(email,{redirectTo});
+      if(r.error)throw r.error;
+      const step=document.getElementById('epResetStep');
+      if(step)step.innerHTML='<p style="color:#8fb9b5;font-size:11px">If the account exists, Supabase will email a secure reset link. Open the link on this device to choose a new password.</p>';
+    }catch(e){alert(e.message||'Could not send the password-reset email')}
+  };
+  window.verifyErecpassPasswordReset=async function(){
+    const p1=document.getElementById('epResetNewPass')?.value||'';
+    const p2=document.getElementById('epResetNewPass2')?.value||'';
+    if(!p1||p1!==p2){alert('Passwords do not match.');return}
+    if(!/[#!?]/.test(p1)){alert('Password must contain at least one symbol: # ! ?');return}
+    try{
+      const r=await sb().auth.updateUser({password:p1});if(r.error)throw r.error;
+      document.getElementById('erecpassForgotModal')?.classList.remove('active');
+      alert('Password updated in Supabase Auth. You can now log in.');
+      await sb().auth.signOut();
+    }catch(e){alert('Open the secure reset link from your email first. '+(e.message||''))}
+  };
+  sb()?.auth.onAuthStateChange((event)=>{
+    if(event==='PASSWORD_RECOVERY'){
+      window.openErecpassForgotPassword();
+      const step=document.getElementById('epResetStep');
+      if(step)step.innerHTML='<label>New Password</label><input id="epResetNewPass" type="password" autocomplete="new-password">'+
+        '<label>Confirm Password</label><input id="epResetNewPass2" type="password" autocomplete="new-password">'+
+        '<div class="erecpass-added-actions"><button type="button" onclick="verifyErecpassPasswordReset()">Update Password</button></div>';
+    }
+  });
+
   window.addEventListener('erecpass-cloud-error',e=>console.error('Cloud save failed:',e.detail));
 })();
