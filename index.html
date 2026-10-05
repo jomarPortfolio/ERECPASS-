@@ -6722,35 +6722,49 @@ window.handleLogin=async function(event){
   const password=(document.getElementById('loginPassword')||{}).value||'';
   if(!email || !password){ alert('Please enter email and password.'); return; }
 
-  let supaWorked=false;
+  let supaError=null;
   try{
     if(window.erecpassSupabase && erecpassSupabase.auth){
       const r=await erecpassSupabase.auth.signInWithPassword({email,password});
-      if(!r.error){
-        supaWorked=true;
-        const user=r.data.user;
-        let profile=null;
-        try{
-          const q=await erecpassSupabase.from('patients').select('*').eq('user_id',user.id).maybeSingle();
-          if(!q.error) profile=q.data;
-        }catch(e){}
-        if(profile && typeof currentSession!=='undefined'){
-          currentSession={type:'patient',data:Object.assign({},profile,{id:profile.id||user.id,email:user.email})};
-          if(typeof DB_KEYS!=='undefined') epSet(DB_KEYS.SESSION,currentSession);
-        }
-        if(typeof showPatientApp==='function') showPatientApp();
-        else if(typeof refreshPatientPortal==='function') refreshPatientPortal();
-        else {
-          const app=document.getElementById('patientApp'); if(app) app.classList.remove('hidden');
-          document.querySelectorAll('.auth-page').forEach(x=>x.classList.add('hidden'));
-        }
+      if(r.error){supaError=r.error;throw r.error;}
+      const user=r.data.user;
+      const profileResult=await erecpassSupabase.from('profiles').select('role,active,full_name').eq('id',user.id).maybeSingle();
+      if(profileResult.error) throw profileResult.error;
+      const authProfile=profileResult.data;
+      if(!authProfile || authProfile.role!=='patient' || authProfile.active===false){
+        await erecpassSupabase.auth.signOut();
+        alert(authProfile?.active===false?'This account is deactivated. Login is disabled.':'This account is not enabled for Patient Login.');
         return;
       }
+      const q=await erecpassSupabase.from('patients').select('*').eq('user_id',user.id).maybeSingle();
+      if(q.error) throw q.error;
+      const patientProfile=q.data;
+      if(!patientProfile){
+        await erecpassSupabase.auth.signOut();
+        alert('Your login is valid, but the patient profile is not linked to this account. Please contact the hospital administrator.');
+        return;
+      }
+      if(typeof currentSession!=='undefined'){
+        currentSession={type:'patient',role:'patient',data:Object.assign({},patientProfile,{id:patientProfile.id,email:user.email,fullName:patientProfile.full_name||authProfile.full_name})};
+        if(typeof DB_KEYS!=='undefined') epSet(DB_KEYS.SESSION,currentSession);
+      }
+      if(typeof showPatientApp==='function') showPatientApp();
+      else if(typeof refreshPatientPortal==='function') refreshPatientPortal();
+      else {
+        const app=document.getElementById('patientApp'); if(app) app.classList.remove('hidden');
+        document.querySelectorAll('.auth-page').forEach(x=>x.classList.add('hidden'));
+      }
+      return;
     }
-  }catch(e){ console.warn('Supabase login:',e); }
+  }catch(e){ supaError=e; console.warn('Supabase login:',e); }
 
-  /* Preserve the original login implementation when Supabase is unavailable
-     or the account has not yet been migrated to Supabase Auth. */
+  /* Never fall back to localStorage passwords when Supabase Auth is configured. */
+  if(window.erecpassSupabase?.auth){
+    alert(supaError?.message||'Login failed. Check your email, password, and email confirmation.');
+    return;
+  }
+
+  /* Legacy local login is only used when Supabase is not configured. */
   if(typeof originalHandleLogin==='function'){
     try { return originalHandleLogin.call(this,event); } catch(e){ console.error(e); }
   }else{
