@@ -9,6 +9,11 @@
 - RLS is enabled; a patient-profile update RPC is restricted to the authenticated user's own profile.
 - Realtime publication includes patients, staff, appointments, announcements, Help Center messages, and activity logs.
 
+## Main Admin and account setup
+- A database constraint now permits **at most one** profile with the `admin` role. This prevents a second admin role from being assigned while another admin exists.
+- At the last check, Supabase Auth had **0 users** and `profiles` had **0 admin profiles**. There is currently no First Admin Auth account to permanently delete; deleting a non-existent account is not possible.
+- Register/create the account intended to be the Second/Main Admin, then promote that exact trusted email using the SQL below. Do not give the admin role to any other account.
+
 ## First-time setup required
 1. In Supabase **Authentication → Providers → Email**, choose whether email confirmation is enabled. If enabled, users must confirm their email before logging in.
 2. Create the first admin account through Supabase Auth (or register a patient account in the app first).
