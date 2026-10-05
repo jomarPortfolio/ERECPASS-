@@ -4574,7 +4574,7 @@ const SUPABASE_ANON_KEY = window.ERECPASS_SUPABASE_ANON_KEY || 'sb_publishable_B
 let erecpassSupabase = null;
 
 if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
-erecpassSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false } });
+erecpassSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: true } });
 window.erecpassSupabase = erecpassSupabase;
 console.log('ERecPass Supabase client initialized.');
 } else {
