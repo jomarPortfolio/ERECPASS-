@@ -6974,5 +6974,41 @@ setTimeout(installAddedUI,2500);
 </script>
 
 <script src="./supabase-runtime.js"></script>
+<!-- ERECPASS WHITE-SCREEN RECOVERY: reveal a usable entry screen if startup fails -->
+<script>
+(function(){
+  function recoverEntryScreen(){
+    try {
+      var ids=['splashScreen','loginPage','staffLoginPage','adminLoginPage','registerPage','patientApp','staffApp','adminApp'];
+      var anyVisible=ids.some(function(id){
+        var el=document.getElementById(id);
+        return el && !el.classList.contains('hidden') && getComputedStyle(el).display!=='none' && getComputedStyle(el).visibility!=='hidden';
+      });
+      if(anyVisible) return;
+      var splash=document.getElementById('splashScreen');
+      if(splash){
+        splash.classList.remove('hidden');
+        splash.style.setProperty('display','flex','important');
+        splash.style.setProperty('visibility','visible','important');
+        splash.style.setProperty('opacity','1','important');
+        splash.style.setProperty('background','#ffffff','important');
+        splash.style.setProperty('color','#14532d','important');
+      }
+      var enter=document.getElementById('enterAppBtn');
+      if(enter){enter.style.setProperty('color','#ffffff','important');enter.style.setProperty('background','#006400','important');}
+      console.error('[ERecPass] Startup recovery displayed the entry screen because no app screen was visible.');
+    } catch(e){ console.error('[ERecPass] Entry-screen recovery failed',e); }
+  }
+  window.addEventListener('error',function(e){
+    console.error('[ERecPass] Page script error:',e.message,e.filename,e.lineno);
+    setTimeout(recoverEntryScreen,0);
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    console.error('[ERecPass] Unhandled startup promise:',e.reason);
+    setTimeout(recoverEntryScreen,0);
+  });
+  window.addEventListener('load',function(){setTimeout(recoverEntryScreen,1200);});
+})();
+</script>
 </body>
 </html>
