@@ -9,7 +9,7 @@ ERecPass is a hospital portal with a Supabase-backed data layer. The app UI is i
 - GitHub Pages deployment workflow: `.github/workflows/pages.yml`
 
 ## First-time admin setup
-The database currently has no Supabase Auth users. Register a patient account in the app (confirm the email if required), then promote your trusted admin email in Supabase SQL Editor:
+The database currently has **0 Supabase Auth users**, so there is no existing First Admin account to delete yet. Register the account intended to become the Second/Main Admin (confirm email if required), then promote that exact trusted email in Supabase SQL Editor. A database constraint now prevents more than one profile from having the `admin` role:
 
 ```sql
 update public.profiles p
