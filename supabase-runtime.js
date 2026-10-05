@@ -76,16 +76,72 @@
   window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(!loading&&![K.X,K.A,K.G,K.E].includes(k)){queue=queue.then(()=>persist(k,old,n)).catch(e=>err('write queue',e))}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&old!==undefined&&!loading)queue=queue.then(()=>persist(k,old,'[]')).catch(e=>err('remove',e))},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
   window.erecpassCloudHydrate=hydrate;
   const profileFor=async u=>{const r=await sb().from('profiles').select('id,full_name,role,active').eq('id',u.id).single();if(r.error)throw r.error;if(r.data.active===false)throw Error('This account is deactivated');return r.data};
+  // The old SMS button only generated a code in this browser; it did not send a real SMS.
+  // Keep the existing control, but do not block account creation on a fake verification step.
+  window.sendSimCode=function(){
+    alert('SMS verification is not connected yet. You can continue registration and verify your account through the email confirmation link.');
+  };
   window.handleRegister=async function(e){
-    e?.preventDefault();const fullName=document.getElementById('regFullName')?.value.trim(),email=document.getElementById('regEmail')?.value.trim().toLowerCase(),sim=document.getElementById('regSim')?.value.trim(),code=document.getElementById('regVerifyCode')?.value.trim(),password=document.getElementById('regPassword')?.value||'',confirm=document.getElementById('regConfirmPassword')?.value||'';
-    if(!fullName||!email||!password){alert('Complete the required fields.');return}
-    if(typeof tempSimCode!=='undefined'&&code!==String(tempSimCode)){alert('Please verify the SMS code first.');return}
-    if(password!==confirm){alert('Passwords do not match!');return}if(!/[#!?]/.test(password)){alert('Password must contain at least one symbol: # ! ?');return}
-    try{const r=await sb().auth.signUp({email,password,options:{data:{full_name:fullName,sim,role:'patient'}}});if(r.error)throw r.error;if(r.data.session){const p=await profileFor(r.data.user);await hydrate();hideAuthPages();launchPortalByRole(p.role);alert(p.role==='admin'?'Main Admin account connected successfully.':'Account created and connected to Supabase.')}else{showLogin();alert(email==='admin2@hospital.com'?'Main Admin registration submitted. Confirm the email inbox for admin2@hospital.com, then sign in from Staff/Admin Login → Admin Login.':'Registration submitted. Confirm your email, then log in.')}}catch(x){alert(x.message||'Registration failed')}
+    e?.preventDefault();
+    const fullName=document.getElementById('regFullName')?.value.trim();
+    const email=document.getElementById('regEmail')?.value.trim().toLowerCase();
+    const sim=document.getElementById('regSim')?.value.trim();
+    const password=document.getElementById('regPassword')?.value||'';
+    const confirm=document.getElementById('regConfirmPassword')?.value||'';
+    if(!fullName||!email||!sim||!password){alert('Complete all required fields.');return}
+    if(password!==confirm){alert('Passwords do not match!');return}
+    if(password.length<8){alert('Use a password with at least 8 characters.');return}
+    if(!/[#!?]/.test(password)){alert('Password must contain at least one symbol: # ! ?');return}
+    if(!sb()?.auth){alert('Connection to the account service is not ready. Refresh the page and try again.');return}
+    const submit=document.querySelector('#registerForm button[type="submit"]');
+    if(submit){submit.disabled=true;submit.textContent='CREATING ACCOUNT…'}
+    try{
+      const r=await sb().auth.signUp({email,password,options:{data:{full_name:fullName,sim,role:'patient'}}});
+      if(r.error)throw r.error;
+      if(r.data.session){
+        const p=await profileFor(r.data.user);
+        await hydrate();
+        hideAuthPages();
+        launchPortalByRole(p.role);
+        alert('Account created successfully.');
+      }else{
+        document.getElementById('registerForm')?.reset();
+        showLogin();
+        alert('Registration successful. Check your email for the confirmation link before logging in.');
+      }
+    }catch(x){
+      const message=x?.message||'Registration failed.';
+      if(/already registered|already been registered|user already exists/i.test(message)){
+        alert('This email already has an account. Please use Login or Forgot Password.');
+      }else{
+        alert('Could not create account: '+message);
+      }
+    }finally{
+      if(submit){submit.disabled=false;submit.textContent='CREATE ACCOUNT'}
+    }
   };
   window.handleLogin=async function(e){e?.preventDefault();const email=document.getElementById('loginEmail')?.value.trim().toLowerCase(),password=document.getElementById('loginPassword')?.value||'';try{const r=await sb().auth.signInWithPassword({email,password});if(r.error)throw r.error;const p=await profileFor(r.data.user);if(p.role!=='patient'){await sb().auth.signOut();throw Error('This account is not a patient account')}await hydrate();if(currentSession?.data?.active===false){await sb().auth.signOut();throw Error('This patient account is deactivated')}hideAuthPages();launchPortalByRole('patient')}catch(x){alert(x.message||'Login failed')}};
   window.handleStaffLogin=async function(e){e?.preventDefault();const email=document.getElementById('staffLoginName')?.value.trim().toLowerCase(),password=document.getElementById('staffLoginPassword')?.value||'';if(!email?.includes('@')){alert('Enter the staff email address in this field.');return}try{const r=await sb().auth.signInWithPassword({email,password});if(r.error)throw r.error;const p=await profileFor(r.data.user);if(p.role!=='staff'){await sb().auth.signOut();throw Error('This account does not have the staff role')}await hydrate();if(currentSession?.data?.active===false){await sb().auth.signOut();throw Error('This staff account is deactivated')}hideAuthPages();launchPortalByRole('staff')}catch(x){alert(x.message||'Staff login failed')}};
-  window.handleAdminLogin=async function(e){e?.preventDefault();const email=document.getElementById('adminLoginUser')?.value.trim().toLowerCase(),password=document.getElementById('adminLoginPassword')?.value||'';if(!email?.includes('@')){alert('Enter the admin email address, not the old local username.');return}try{const r=await sb().auth.signInWithPassword({email,password});if(r.error)throw r.error;const p=await profileFor(r.data.user);if(p.role!=='admin'){await sb().auth.signOut();throw Error('Admin role has not been assigned to this account in Supabase')}await hydrate();hideAuthPages();launchPortalByRole('admin')}catch(x){alert(x.message||'Admin login failed')}};
+  window.handleAdminLogin=async function(e){
+    e?.preventDefault();
+    const email=document.getElementById('adminLoginUser')?.value.trim().toLowerCase();
+    const password=document.getElementById('adminLoginPassword')?.value||'';
+    if(!email?.includes('@')){alert('Enter the email address assigned to your Admin account.');return}
+    if(!password){alert('Enter your Admin password.');return}
+    if(!sb()?.auth){alert('Connection to the account service is not ready. Refresh the page and try again.');return}
+    try{
+      const r=await sb().auth.signInWithPassword({email,password});
+      if(r.error)throw r.error;
+      const p=await profileFor(r.data.user);
+      if(p.role!=='admin'){
+        await sb().auth.signOut();
+        throw Error('This email is registered, but it is not assigned the Admin role yet. Contact the system owner to securely enable Admin access.');
+      }
+      await hydrate();
+      hideAuthPages();
+      launchPortalByRole('admin');
+    }catch(x){alert(x.message||'Admin login failed. Check the email and password, or use Forgot Password.')}
+  };
   window.logout=async function(){try{if(sb())await sb().auth.signOut()}catch(e){err('sign out',e)}if(channel&&sb())await sb().removeChannel(channel);channel=null;user=null;role='anon';currentSession=null;put(K.X,null);[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));['patientApp','staffApp','adminApp'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));showLogin()};
   const oldOnload=window.onload;window.onload=function(e){let result;try{if(typeof oldOnload==='function')result=oldOnload.call(this,e)}catch(x){err('original startup',x)};Promise.resolve().then(()=>hydrate()).catch(x=>err('startup cloud sync (page remains usable)',x));return result};
   document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('staffLoginName');if(i){i.type='email';i.placeholder='Enter staff email'}const l=document.querySelector('#staffLoginForm label');if(l)l.textContent='Staff Email';const a=document.getElementById('adminLoginUser');if(a)a.placeholder='admin2@hospital.com'});
