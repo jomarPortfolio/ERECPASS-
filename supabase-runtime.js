@@ -53,12 +53,18 @@
       }else if(k===K.S&&role==='admin'){
         const rows=a.map(s=>({id:String(s.id),user_id:s.user_id||null,name:s.name||s.fullName||'',email:s.email||'',role_title:s.role||s.role_title||'',task:s.task||'',available:s.available!==false,schedule:s.schedule||'',active:s.active!==false}));
         if(rows.length){const r=await client.from('staff').upsert(rows,{onConflict:'id'});if(r.error)throw r.error}
+        const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
+        if(del.length){const r=await client.from('staff').delete().in('id',del);if(r.error)throw r.error}
       }else if(k===K.B){
         const rows=a.map(x=>({legacy_id:String(x.id),patient_id:String(x.patientId||x.patient_id||''),patient_name:x.patientName||x.patient_name||'',doctor:x.doctor||'',appointment_date:x.date||x.appointment_date||null,reason:x.reason||'',status:x.status||'Pending Approval',created_by:user.id}));
         if(rows.length){const r=await client.from('appointments').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error}
+        const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
+        if(del.length&&role==='admin'){const r=await client.from('appointments').delete().in('legacy_id',del);if(r.error)throw r.error}
       }else if(k===K.N&&role==='admin'){
         const rows=a.map(x=>({legacy_id:String(x.id),body:x.text||x.body||'',photo:x.photo||'',published_on:x.date||x.published_on||null,created_by:user.id}));
         if(rows.length){const r=await client.from('announcements').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error}
+        const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
+        if(del.length){const r=await client.from('announcements').delete().in('legacy_id',del);if(r.error)throw r.error}
       }else if(k===K.C){
         for(const x of a){if(!x.message&&!x.text)continue;const r=await client.from('help_center_messages').upsert({legacy_id:String(x.id||crypto.randomUUID()),user_id:x.user_id||user.id,full_name:x.fullName||x.full_name||currentSession?.data?.fullName||currentSession?.data?.name||'',email:x.email||user.email||'',message:x.message||x.text||'',admin_reply:x.reply||x.admin_reply||'',status:x.status||'New'},{onConflict:'legacy_id'});if(r.error)throw r.error}
       }else if(k===K.L){
