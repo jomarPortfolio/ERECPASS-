@@ -4,7 +4,7 @@
  */
 (function () {
   const SUPABASE_URL = "https://bfboehvgrivanmrfqquw.supabase.co";
-  const SUPABASE_PUBLISHABLE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BKQ_gEGu54VUztykzIIfEQ_2IMIoMb_";
 
   if (!window.supabase || typeof window.supabase.createClient !== "function") {
     console.error("ERecPass: Supabase JS v2 was not loaded before supabase-client.js.");
