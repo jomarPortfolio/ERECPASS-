@@ -4846,7 +4846,7 @@ let cloudTimer = null;
 let originalSubmitBookAppointment = null;
 
 function cloudReady(){
-return !!(window.erecpassSupabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY);
+return !!window.erecpassSupabase;
 }
 
 function localAppointments(){
