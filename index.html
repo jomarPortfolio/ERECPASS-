@@ -6734,7 +6734,7 @@ window.handleLogin=async function(event){
         const user=r.data.user;
         let profile=null;
         try{
-          const q=await erecpassSupabase.from('patients').select('*').eq('auth_user_id',user.id).maybeSingle();
+          const q=await erecpassSupabase.from('patients').select('*').eq('user_id',user.id).maybeSingle();
           if(!q.error) profile=q.data;
         }catch(e){}
         if(profile && typeof currentSession!=='undefined'){
@@ -6929,7 +6929,7 @@ window.erecpassSupabaseSyncPatient=async function(patient){
   if(!window.erecpassSupabase)return {error:new Error('Supabase is not configured')};
   return await erecpassSupabase.from('patients').upsert({
     id:patient.id,
-    auth_user_id:patient.auth_user_id||null,
+    user_id:patient.user_id||patient.auth_user_id||null,
     full_name:patient.fullName||patient.name||null,
     email:patient.email||null,
     sim:patient.sim||null,
