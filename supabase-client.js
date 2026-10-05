@@ -20,9 +20,9 @@
     SUPABASE_PUBLISHABLE_KEY,
     {
       auth: {
-        persistSession: true,
+        persistSession: false,
         autoRefreshToken: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: false
       }
     }
   );
