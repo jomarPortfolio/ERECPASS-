@@ -6859,51 +6859,57 @@ window.viewErecpassAdminAccount=function(type,id){
 window.editErecpassAdminAccount=function(type,id){
   const a=(type==='patient'?epPatients():epStaff()).find(x=>String(x.id)===String(id));
   if(!a)return;
-  const key=type==='patient'?DB_KEYS.PATIENTS:DB_KEYS.STAFF;
   epModal('erecpassEditAccountModal','Edit Account',
     '<label>Name</label><input id="epEditName" value="'+epEscape(a.fullName||a.name||'')+'">'+
-    '<label>Email</label><input id="epEditEmail" value="'+epEscape(a.email||'')+'">'+
-    '<label>Role</label><input id="epEditRole" value="'+epEscape(a.role||'Patient')+'">'+
-    '<label>Permissions</label><input id="epEditPermissions" value="'+epEscape(a.permissions||'Standard')+'">'+
-    '<label>New Password (optional)</label><input id="epEditPassword" type="password">'+    '<div class="erecpass-added-actions"><button onclick="saveErecpassAdminAccount(\''+epEscape(type)+'\',\''+epEscape(id)+'\')">Save</button></div>');
+    '<label>Email</label><input id="epEditEmail" type="email" value="'+epEscape(a.email||'')+'">'+
+    '<p style="color:#8fb9b5;font-size:11px;margin-top:8px">Email changes may require confirmation. Use Forgot Password to change a password securely.</p>'+
+    '<div class="erecpass-added-actions"><button onclick="saveErecpassAdminAccount(\''+epEscape(type)+'\',\''+epEscape(id)+'\')">Save</button></div>');
 };
-window.saveErecpassAdminAccount=function(type,id){
-  const key=type==='patient'?DB_KEYS.PATIENTS:DB_KEYS.STAFF;
-  const arr=epGet(key,[]);
+window.saveErecpassAdminAccount=async function(type,id){
+  const arr=type==='patient'?epPatients():epStaff();
   const a=arr.find(x=>String(x.id)===String(id)); if(!a)return;
   const name=document.getElementById('epEditName')?.value.trim();
-  const email=document.getElementById('epEditEmail')?.value.trim();
-  const role=document.getElementById('epEditRole')?.value.trim();
-  const permissions=document.getElementById('epEditPermissions')?.value.trim();
-  const password=document.getElementById('epEditPassword')?.value;
-  if(type==='patient') a.fullName=name; else a.name=name;
-  a.email=email; a.role=role; a.permissions=permissions;
-  if(password) a.password=password;
-  epSet(key,arr);
-  document.getElementById('erecpassEditAccountModal')?.classList.remove('active');
-  renderErecpassAdminAccounts();
-  if(typeof addLog==='function') addLog('Admin edited '+type+' account: '+name);
+  const email=document.getElementById('epEditEmail')?.value.trim().toLowerCase();
+  if(!name||!email){alert('Enter the account name and email.');return}
+  if(!window.erecpassSupabase?.functions){alert('Account service is not connected. Refresh the page and try again.');return}
+  try{
+    const result=await window.erecpassSupabase.functions.invoke('admin-manage-account',{body:{action:'update_account',type,rowId:String(id),userId:a.user_id||a.auth_user_id||'',fullName:name,email}});
+    if(result.error)throw result.error;
+    if(result.data?.error)throw new Error(result.data.error);
+    await window.erecpassCloudHydrate?.();
+    document.getElementById('erecpassEditAccountModal')?.classList.remove('active');
+    renderErecpassAdminAccounts();
+    if(typeof addLog==='function')addLog('Admin updated '+type+' account: '+name);
+    alert(result.data?.emailConfirmationMayBeRequired?'Account updated. Check the new email inbox for any confirmation message.':'Account details updated.');
+  }catch(e){alert('Could not update account: '+(e.message||'Please try again.'))}
 };
-window.toggleErecpassAdminAccount=function(type,id){
-  const key=type==='patient'?DB_KEYS.PATIENTS:DB_KEYS.STAFF;
-  const arr=epGet(key,[]);
+window.toggleErecpassAdminAccount=async function(type,id){
+  const arr=type==='patient'?epPatients():epStaff();
   const a=arr.find(x=>String(x.id)===String(id)); if(!a)return;
-  a.active=a.active===false;
-  epSet(key,arr);
-  if(typeof addLog==='function') addLog('Admin '+(a.active?'activated ':'deactivated ')+type+' account: '+(a.fullName||a.name||id));
-  renderErecpassAdminAccounts();
-  alert(a.active?'Account activated.':'Account deactivated. Login is blocked while deactivated.');
+  const active=a.active===false;
+  try{
+    const result=await window.erecpassSupabase.functions.invoke('admin-manage-account',{body:{action:'set_active',type,rowId:String(id),userId:a.user_id||a.auth_user_id||'',active}});
+    if(result.error)throw result.error;
+    if(result.data?.error)throw new Error(result.data.error);
+    await window.erecpassCloudHydrate?.();
+    renderErecpassAdminAccounts();
+    if(typeof addLog==='function')addLog('Admin '+(active?'activated ':'deactivated ')+type+' account: '+(a.fullName||a.name||id));
+    alert(active?'Account activated.':'Account deactivated. Login access is blocked.');
+  }catch(e){alert('Could not update account status: '+(e.message||'Please try again.'))}
 };
-window.deleteErecpassAdminAccount=function(type,id){
-  if(!confirm('Delete Account?\nThis will permanently remove the '+type+' account.')) return;
-  const key=type==='patient'?DB_KEYS.PATIENTS:DB_KEYS.STAFF;
-  const arr=epGet(key,[]);
-  const target=arr.find(x=>String(x.id)===String(id));
-  if(!target)return;
-  epSet(key,arr.filter(x=>String(x.id)!==String(id)));
-  if(typeof addLog==='function') addLog('Admin permanently deleted '+type+' account: '+(target.fullName||target.name||id));
-  renderErecpassAdminAccounts();
-  alert('Account permanently deleted.');
+window.deleteErecpassAdminAccount=async function(type,id){
+  if(!confirm('Delete Account?\nThis will deactivate login access and retain existing records. Permanent Auth deletion is not enabled yet.')) return;
+  const arr=type==='patient'?epPatients():epStaff();
+  const target=arr.find(x=>String(x.id)===String(id)); if(!target)return;
+  try{
+    const result=await window.erecpassSupabase.functions.invoke('admin-manage-account',{body:{action:'set_active',type,rowId:String(id),userId:target.user_id||target.auth_user_id||'',active:false}});
+    if(result.error)throw result.error;
+    if(result.data?.error)throw new Error(result.data.error);
+    await window.erecpassCloudHydrate?.();
+    renderErecpassAdminAccounts();
+    if(typeof addLog==='function')addLog('Admin deactivated '+type+' account: '+(target.fullName||target.name||id));
+    alert('Account access deactivated. Existing records were retained.');
+  }catch(e){alert('Could not deactivate account: '+(e.message||'Please try again.'))}
 };
 
 /* ---------- 6. Deactivated accounts cannot log in ---------- */
