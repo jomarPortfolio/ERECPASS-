@@ -1,29 +1,51 @@
-# ERecPass Backend Setup Status
+# ERecPass Supabase Setup
 
-## Completed
-- Supabase project exists at `https://bfboehvgrivanmrfqquw.supabase.co`.
-- Eight tables were created: profiles, patients, staff, appointments, announcements, help_center_messages, activity_logs, app_settings.
-- RLS is enabled on all eight tables.
-- A role helper and new-user profile trigger were created.
+## Current repository wiring
+- `index.html` is the app entry point.
+- `supabase-runtime.js` replaces browser-persistent storage with an in-memory cache backed by Supabase queries/writes.
+- `supabase-client.js` contains only the public browser client configuration. The HTML currently initializes the same client inline.
+- Supabase project: `https://bfboehvgrivanmrfqquw.supabase.co`.
+- Tables: `profiles`, `patients`, `staff`, `appointments`, `announcements`, `help_center_messages`, `activity_logs`, `app_settings`.
+- RLS is enabled; a patient-profile update RPC is restricted to the authenticated user's own profile.
+- Realtime publication includes patients, staff, appointments, announcements, Help Center messages, and activity logs.
 
-## Not yet completed
-- The original ERecPass HTML source is not present in this GitHub repository yet.
-- The app's current localStorage CRUD functions have not been fully switched to Supabase.
-- Existing patient/staff records have not been migrated.
-- No production accounts have been provisioned or tested.
-- GitHub Pages cannot serve the app until an `index.html` entry point is committed.
+## First-time setup required
+1. In Supabase **Authentication → Providers → Email**, choose whether email confirmation is enabled. If enabled, users must confirm their email before logging in.
+2. Create the first admin account through Supabase Auth (or register a patient account in the app first).
+3. In **SQL Editor**, promote that exact email to admin. Replace the example email before running:
+   ```sql
+   update public.profiles p
+   set role = 'admin', active = true
+   from auth.users u
+   where p.id = u.id
+     and lower(u.email) = lower('YOUR_ADMIN_EMAIL@example.com');
+   ```
+   Run this only for the trusted administrator account you control. The app intentionally does not let users choose their own role.
+4. Create staff Auth users through **Authentication → Users → Add user**, then assign their role and link their staff row in SQL. Replace the email and UUID with the actual user:
+   ```sql
+   update public.profiles p
+   set role = 'staff', active = true
+   from auth.users u
+   where p.id = u.id
+     and lower(u.email) = lower('STAFF_EMAIL@example.com');
 
-## Required script order in index.html
-Place these before the app's JavaScript that calls Supabase:
-```html
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="./supabase-client.js"></script>
-```
+   update public.staff
+   set user_id = (select id from auth.users where lower(email)=lower('STAFF_EMAIL@example.com')),
+       email = 'STAFF_EMAIL@example.com'
+   where id = 'STAFF_ROW_ID';
+   ```
+   Ensure a staff row with that ID exists first.
+5. Open **Settings → Pages** in GitHub and confirm Pages is enabled for the repository. The workflow file deploys from GitHub Actions.
 
-Then update the app's data/auth functions to use `window.erecpassSupabase`. Merely adding this client file does not automatically migrate existing localStorage data or CRUD functions.
+## Current limitations — do not use real patient data yet
+- Existing demo/local browser data has not been imported into Supabase. No plaintext demo passwords were migrated.
+- Account creation/deletion and password changes for other users need a server-side admin endpoint; editing a patient/staff row alone does not create or delete its Supabase Auth user.
+- Verify appointment cancellation/deletion, Help Center threads, photo uploads/storage permissions, and account management end-to-end before production.
+- No production end-to-end test has been run with separate patient, staff, and admin accounts.
+- Use only fake/test patient data until the above checks are complete.
 
-## Security notes
-- Keep RLS enabled and test with patient, staff, and admin users separately.
-- Do not store passwords in localStorage or migrate plaintext demo passwords.
-- Do not place service_role or secret keys in this repository.
-- Avoid using real patient information until authorization, file storage access, and account recovery have been tested.
+## Security
+- Only use the Supabase publishable key in browser files.
+- Never put the Supabase secret/service-role key in HTML, JavaScript, GitHub, or screenshots.
+- A secret key was exposed in chat; rotate it in Supabase Dashboard.
+- Keep RLS enabled and test every role separately.
