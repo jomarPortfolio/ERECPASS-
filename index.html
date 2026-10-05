@@ -2686,149 +2686,16 @@ SESSION: 'erecpass_db_session'
 };
 
 function initDatabase() {
-if (!epStore.getItem(DB_KEYS.ADMIN_ACCOUNTS)) {
-const initialAdmins = [
-{ username: "admin", email: "admin@hospital.com", password: "admin123", name: "System Admin" },
-{ username: "admin2", email: "admin2@hospital.com", password: "admin456", name: "Assistant Admin" }
-];
-epStore.setItem(DB_KEYS.ADMIN_ACCOUNTS, JSON.stringify(initialAdmins));
-} else {
-const adminAccounts = JSON.parse(epStore.getItem(DB_KEYS.ADMIN_ACCOUNTS)) || [];
-if (!adminAccounts.some(a => a.username === "admin2")) {
-adminAccounts.push({ username: "admin2", email: "admin2@hospital.com", password: "admin456", name: "Assistant Admin" });
-epStore.setItem(DB_KEYS.ADMIN_ACCOUNTS, JSON.stringify(adminAccounts));
-}
-}
-
-if (!epStore.getItem(DB_KEYS.AGREEMENT)) {
-
-epStore.setItem(DB_KEYS.AGREEMENT, JSON.stringify({
-
-text: "Welcome to ERecPass (Electronic Health Record Pass). By continuing, you agree to allow Angono General Hospital to securely process your basic personal and health identification records. Data is stored with encryption and accessible only by authorized medical staff.",
-
-photo: ""
-
-}));
-
-}
-
-if (!epStore.getItem(DB_KEYS.EMERGENCY_NUMS)) {
-
-epStore.setItem(DB_KEYS.EMERGENCY_NUMS, JSON.stringify({
-
-barangay: "0917-123-4567",
-
-national: "911"
-
-}));
-
-}
-
-if (!epStore.getItem(DB_KEYS.PATIENTS)) {
-
-const initialPatients = [
-
-{
-
-id: "ER-2026-0001",
-
-fullName: "Juan Dela Cruz",
-
-email: "juan@example.com",
-
-password: "Password123!",
-
-sim: "09123456789",
-
-photo: "https://via.placeholder.com/100",
-
-ageCategory: "Adult",
-
-guardianNum: "09189876543",
-
-status: "Green", // Green, Yellow, Red
-
-labResults: [
-
-{ date: "2026-09-10", type: "CBC Blood Test", result: "Normal range. RBC: 4.8, WBC: 6.5.", photo: "" }
-
-],
-
-prescriptions: [
-
-{ medicine: "Paracetamol 500mg", dosage: "1 tablet every 8 hrs", days: "5 Days", active: true }
-
-],
-
-doctorNotes: "Continue hydration. Next review in 2 weeks.",
-
-online: false
-
-}
-
-];
-
-epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(initialPatients));
-
-}
-
-if (!epStore.getItem(DB_KEYS.STAFF)) {
-
-const initialStaff = [
-
-{ id: "STF-01", name: "Dr. Maria Santos", password: "staff123", role: "General Practitioner", task: "Outpatient Duty", available: true, schedule: "Mon-Fri 8AM-5PM" },
-
-{ id: "STF-02", name: "Nurse Ana Cruz", password: "staff123", role: "Registered Nurse", task: "Triage & QR Scanning", available: true, schedule: "Mon-Sat 7AM-3PM" },
-
-{ id: "STF-03", name: "Nurse Carlo Reyes", password: "staff456", role: "Registered Nurse", task: "Patient Records & Triage", available: true, schedule: "Mon-Sat 8AM-4PM" }
-];
-
-epStore.setItem(DB_KEYS.STAFF, JSON.stringify(initialStaff));
-
-}
-// Add the new staff account to existing installations without duplicating it.
-const existingStaff = JSON.parse(epStore.getItem(DB_KEYS.STAFF)) || [];
-if (!existingStaff.some(s => s.id === "STF-03")) {
-existingStaff.push({ id: "STF-03", name: "Nurse Carlo Reyes", password: "staff456", role: "Registered Nurse", task: "Patient Records & Triage", available: true, schedule: "Mon-Sat 8AM-4PM" });
-epStore.setItem(DB_KEYS.STAFF, JSON.stringify(existingStaff));
-}
-
-if (!epStore.getItem(DB_KEYS.ANNOUNCEMENTS)) {
-
-epStore.setItem(DB_KEYS.ANNOUNCEMENTS, JSON.stringify([
-
-{ id: 1, text: "Free Dengue Vaccination Program available at Angono General Hospital Outpatient Dept.", photo: "", date: "2026-09-20" }
-
-]));
-
-}
-
-if (!epStore.getItem(DB_KEYS.APPOINTMENTS)) {
-
-epStore.setItem(DB_KEYS.APPOINTMENTS, JSON.stringify([
-
-{ id: 101, patientId: "ER-2026-0001", patientName: "Juan Dela Cruz", doctor: "Dr. Maria Santos", date: "2026-09-25", reason: "Routine Checkup", status: "Approved" }
-
-]));
-
-}
-
-if (!epStore.getItem(DB_KEYS.CHATS)) {
-
-epStore.setItem(DB_KEYS.CHATS, JSON.stringify([]));
-
-}
-
-if (!epStore.getItem(DB_KEYS.LOGS)) {
-
-epStore.setItem(DB_KEYS.LOGS, JSON.stringify([
-
-{ timestamp: new Date().toLocaleString(), text: "System initialized with database support." }
-
-]));
-
-}
-
+  // Seed only non-clinical display settings. All patient/staff records are loaded from Supabase.
+  if (!epStore.getItem(DB_KEYS.AGREEMENT)) {
+    epStore.setItem(DB_KEYS.AGREEMENT, JSON.stringify({
+      text: "Welcome to ERecPass. Please keep your account secure and use this portal only for authorized hospital services.",
+      photo: ""
+    }));
+  }
+  if (!epStore.getItem(DB_KEYS.EMERGENCY_NUMS)) {
+    epStore.setItem(DB_KEYS.EMERGENCY_NUMS, JSON.stringify({ barangay: "0917-123-4567", national: "911" }));
+  }
 }
 
 function addLog(text) {
@@ -4707,7 +4574,7 @@ const SUPABASE_ANON_KEY = window.ERECPASS_SUPABASE_ANON_KEY || 'sb_publishable_B
 let erecpassSupabase = null;
 
 if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
-erecpassSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+erecpassSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false } });
 window.erecpassSupabase = erecpassSupabase;
 console.log('ERecPass Supabase client initialized.');
 } else {
