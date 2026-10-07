@@ -108,6 +108,16 @@
         const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
         if(del.length){const r=await client.from('staff').delete().in('id',del);if(r.error)throw r.error}
       }else if(k===K.B){
+        if(role==='patient'){
+          const before=new Map(old.map(x=>[String(x.id),x]));
+          for(const x of a){
+            const prev=before.get(String(x.id));
+            if(!prev || prev.status===x.status) continue;
+            const r=await client.from('appointments').update({status:x.status}).eq('legacy_id',String(x.id));
+            if(r.error)throw r.error;
+          }
+          return;
+        }
         const rows=a.map(x=>({legacy_id:String(x.id),patient_id:String(x.patientId||x.patient_id||''),patient_name:x.patientName||x.patient_name||'',doctor:x.doctor||'',appointment_date:x.date||x.appointment_date||null,reason:x.reason||'',status:x.status||'Pending Approval',created_by:user.id}));
         if(rows.length){
           const r=await client.from('appointments').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error;
