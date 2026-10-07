@@ -4629,7 +4629,7 @@ function uipaquibsCloseSettings() {
 document.getElementById('uipaquibsAdminSettingsModal').classList.add('hidden');
 }
 
-function uipaquibsSaveEmergencyNumber() {
+async function uipaquibsSaveEmergencyNumber() {
 if (!currentSession || currentSession.role !== 'admin') {
 alert('Admin access only.');
 return;
@@ -4640,14 +4640,19 @@ alert('Enter an emergency number.');
 return;
 }
 
-const nums = JSON.parse(epStore.getItem(DB_KEYS.EMERGENCY_NUMS) || '{}');
-nums.barangay = number;
-nums.national = nums.national || '911';
-epStore.setItem(DB_KEYS.EMERGENCY_NUMS, JSON.stringify(nums));
-
-if (typeof addLog === 'function') addLog('Admin updated Barangay emergency number.');
-if (typeof loadEmergencyNumbers === 'function') loadEmergencyNumbers();
-alert('Emergency number updated.');
+try {
+  const nums = JSON.parse(epStore.getItem(DB_KEYS.EMERGENCY_NUMS) || '{}');
+  nums.barangay = number;
+  nums.national = nums.national || '911';
+  epStore.setItem(DB_KEYS.EMERGENCY_NUMS, JSON.stringify(nums));
+  if (typeof addLog === 'function') addLog('Admin updated Barangay emergency number.');
+  if (typeof loadEmergencyNumbers === 'function') loadEmergencyNumbers();
+  await window.erecpassCloudFlush?.();
+  alert('Emergency number updated and saved to Supabase.');
+} catch (error) {
+  console.error('Emergency number save failed:', error);
+  alert('Emergency number changed on screen, but Supabase save failed. Please try again.');
+}
 }
 
 function uipaquibsSaveLogo() {
@@ -5188,17 +5193,23 @@ container.innerHTML += `
 };
 
 // Keep the existing update function behavior, while adding safe status handling.
-window.updateApptStatus = function(id, status) {
+window.updateApptStatus = async function(id, status) {
 const appts = JSON.parse(epStore.getItem(DB_KEYS.APPOINTMENTS)) || [];
 const a = appts.find(function(item) { return item.id === id; });
 if (!a) return;
 if (a.status === 'Approved' || a.status === 'Cancelled') return;
-a.status = status;
-epStore.setItem(DB_KEYS.APPOINTMENTS, JSON.stringify(appts));
-if (typeof addLog === 'function') {
-addLog('Admin ' + status.toLowerCase() + ' appointment for ' + (a.patientName || 'patient') + '.');
+try {
+  a.status = status;
+  epStore.setItem(DB_KEYS.APPOINTMENTS, JSON.stringify(appts));
+  if (typeof addLog === 'function') {
+    addLog('Admin ' + status.toLowerCase() + ' appointment for ' + (a.patientName || 'patient') + '.');
+  }
+  window.renderAdminAppointmentsList();
+  await window.erecpassCloudFlush?.();
+} catch (error) {
+  console.error('Appointment status save failed:', error);
+  alert('Appointment changed on screen, but Supabase save failed. Please try again.');
 }
-window.renderAdminAppointmentsList();
 };
 
 // Refresh the admin appointment list when the page is ready.
