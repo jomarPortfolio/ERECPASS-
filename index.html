@@ -7447,6 +7447,7 @@ setTimeout(installAddedUI,2500);
       form.dataset.erecpassWired='1';
       form.addEventListener('submit',function(e){
         e.preventDefault();
+        e.stopImmediatePropagation();
         if(typeof window[pair[1]]==='function') window[pair[1]](e);
         else alert('Login service is still loading. Please try again in a moment.');
       },true);
