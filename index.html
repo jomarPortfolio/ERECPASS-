@@ -6682,7 +6682,7 @@ Never place a service_role/secret key in browser code. -->
     document.getElementById('erecpassDeleteAppointmentModal').classList.add('active');
   }
 
-  function deleteSelectedAppointment() {
+  async function deleteSelectedAppointment() {
     if (selectedDeleteAppointmentId === null || typeof DB_KEYS === 'undefined') return;
 
     const appts = JSON.parse(epStore.getItem(DB_KEYS.APPOINTMENTS)) || [];
