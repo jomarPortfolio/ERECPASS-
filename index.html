@@ -1179,6 +1179,12 @@ Loading system terms and health data agreement...
 
 </div>
 
+<div id="splashAgreementPhotoContainer" class="hidden mb-3">
+
+<img id="splashAgreementPhotoImg" src="" alt="Agreement Document" class="w-full max-h-56 object-contain rounded-xl border border-cyan-500/30 bg-white/5">
+
+</div>
+
 <div class="flex items-center gap-2 mb-3">
 
 <input type="checkbox" id="splashAgreeCheckbox" class="w-4 h-4 accent-cyan-400 rounded cursor-pointer">
@@ -2791,18 +2797,31 @@ document.getElementById('loginPage').classList.remove('hidden');
 
 function loadAgreementData() {
 
-const agree = JSON.parse(epStore.getItem(DB_KEYS.AGREEMENT));
+const agree = JSON.parse(epStore.getItem(DB_KEYS.AGREEMENT) || '{}');
 
-document.getElementById('splashAgreementPreview').innerText = agree.text;
+document.getElementById('splashAgreementPreview').innerText = agree.text || 'No system agreement has been posted yet.';
 
-document.getElementById('fullAgreementTextDisplay').innerText = agree.text;
+document.getElementById('fullAgreementTextDisplay').innerText = agree.text || 'No system agreement has been posted yet.';
+
+const splashPhotoContainer = document.getElementById('splashAgreementPhotoContainer');
+const splashPhotoImg = document.getElementById('splashAgreementPhotoImg');
+const modalPhotoContainer = document.getElementById('agreementPhotoPreviewContainer');
+const modalPhotoImg = document.getElementById('agreementPhotoDisplayImg');
 
 if (agree.photo) {
-
-document.getElementById('agreementPhotoPreviewContainer').classList.remove('hidden');
-
-document.getElementById('agreementPhotoDisplayImg').src = agree.photo;
-
+  if (splashPhotoContainer && splashPhotoImg) {
+    splashPhotoContainer.classList.remove('hidden');
+    splashPhotoImg.src = agree.photo;
+  }
+  if (modalPhotoContainer && modalPhotoImg) {
+    modalPhotoContainer.classList.remove('hidden');
+    modalPhotoImg.src = agree.photo;
+  }
+} else {
+  splashPhotoContainer?.classList.add('hidden');
+  modalPhotoContainer?.classList.add('hidden');
+  if (splashPhotoImg) splashPhotoImg.removeAttribute('src');
+  if (modalPhotoImg) modalPhotoImg.removeAttribute('src');
 }
 
 }
