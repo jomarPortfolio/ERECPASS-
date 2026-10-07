@@ -2383,6 +2383,11 @@ Already have an account?
 
 </div>
 
+<div class="glass-card p-5 rounded-2xl max-w-lg space-y-3">
+<h2 class="text-sm font-tech text-cyan-300 font-bold uppercase">Posted Announcements</h2>
+<div id="adminAnnouncementList" class="space-y-2"></div>
+</div>
+
 </div>
 
 <!-- ADMIN TAB 4: UPLOAD AGREEMENT -->
@@ -4467,6 +4472,61 @@ renderAdminStaffList();
 
 }
 
+function renderAdminAnnouncementList() {
+  const container = document.getElementById('adminAnnouncementList');
+  if (!container) return;
+  const announcements = JSON.parse(epStore.getItem(DB_KEYS.ANNOUNCEMENTS)) || [];
+
+  if (!announcements.length) {
+    container.innerHTML = '<p class="text-xs text-slate-400">No announcements posted yet.</p>';
+    return;
+  }
+
+  container.innerHTML = announcements.map(a => `
+    <div class="list-card p-3 rounded-xl">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <strong class="text-white text-xs block">Announcement</strong>
+          <p class="text-[11px] text-slate-400 mt-0.5">${a.date || ''}</p>
+          ${a.text ? `<p class="text-xs text-slate-300 mt-1">${a.text}</p>` : ''}
+          ${a.photo ? `<img src="${a.photo}" alt="Announcement photo" class="w-full max-h-48 object-contain rounded-lg mt-2 bg-slate-950/50" onerror="this.style.display='none'">` : ''}
+        </div>
+        <button onclick="deleteAdminAnnouncement('${String(a.id).replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded text-[10px] font-tech font-bold bg-rose-950 text-rose-300 border border-rose-500 shrink-0">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function deleteAdminAnnouncement(announcementId) {
+  const email = String(currentSession?.data?.email || '').trim().toLowerCase();
+  const role = String(currentSession?.role || '').toLowerCase();
+
+  if (role !== 'admin' || email !== 'admin2@gmail.com') {
+    alert('Only the authorized Admin account can delete announcements.');
+    return;
+  }
+
+  const confirmed = window.confirm('Delete this announcement?\\n\\nThis action cannot be undone.');
+  if (!confirmed) return;
+
+  const announcements = JSON.parse(epStore.getItem(DB_KEYS.ANNOUNCEMENTS)) || [];
+  const updated = announcements.filter(a => String(a.id) !== String(announcementId));
+  if (updated.length === announcements.length) {
+    alert('Announcement was not found.');
+    return;
+  }
+
+  try {
+    epStore.setItem(DB_KEYS.ANNOUNCEMENTS, JSON.stringify(updated));
+    addLog('Deleted Announcement: ' + String(announcementId));
+    renderAdminAnnouncementList();
+    await window.erecpassCloudFlush?.();
+    alert('Announcement deleted successfully.');
+  } catch (error) {
+    alert('Could not delete the announcement: ' + (error.message || error));
+  }
+}
+
 async function adminPostAnnouncement() {
   const text = document.getElementById('adminAnnouncementText').value.trim();
   const photoInput = document.getElementById('adminAnnouncementPhoto');
@@ -4490,6 +4550,7 @@ async function adminPostAnnouncement() {
     addLog("Posted Announcement: " + (text || 'Photo announcement'));
     if (photoInput) photoInput.value = '';
     await window.erecpassCloudFlush?.();
+    renderAdminAnnouncementList();
     alert("Announcement posted and saved to Supabase.");
   } catch (error) {
     alert('Could not save the announcement: ' + (error.message || error));
