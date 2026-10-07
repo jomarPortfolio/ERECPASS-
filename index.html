@@ -2753,6 +2753,15 @@ initDatabase();
 
 loadAgreementData();
 
+// Supabase hydrates asynchronously. Re-render the Entrance Agreement after
+// the cloud data arrives so the saved admin text + uploaded photo are shown.
+let agreementHydrationChecks = 0;
+const agreementHydrationTimer = setInterval(() => {
+  loadAgreementData();
+  agreementHydrationChecks++;
+  if (agreementHydrationChecks >= 30) clearInterval(agreementHydrationTimer);
+}, 500);
+
 loadEmergencyNums();
 
 // Check session
