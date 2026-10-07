@@ -13,9 +13,17 @@
     if(!sb())throw Error('Supabase client did not initialize');
     loading=true;
     try{
+      const brandingRes=await sb().from('app_settings').select('setting_key,setting_value').eq('setting_key','system_branding').maybeSingle();
+      if(!brandingRes.error){
+        const branding=brandingRes.data?.setting_value||{};
+        putSettings(branding);
+        if(window.applySystemLogo) window.applySystemLogo(branding.logo||'');
+      } else {
+        err('read public branding',brandingRes.error);
+      }
       const sr=await sb().auth.getSession();if(sr.error)throw sr.error;
       const u=sr.data.session?.user;
-      if(!u){role='anon';user=null;[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));put(K.X,null);return}
+      if(!u){role='anon';user=null;[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,'[]'));put(K.X,null);return}
       user=u;
       const pr=await sb().from('profiles').select('id,full_name,role,active').eq('id',u.id).maybeSingle();
       if(pr.error)throw pr.error;
