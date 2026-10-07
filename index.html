@@ -1279,7 +1279,7 @@ Loading system terms and health data agreement...
 
 </form>
 
-<button id="erecpassForgotBtnAdded" type="button" onclick="openErecpassForgotPassword(); return false;" class="w-full py-2 text-xs text-rose-400 font-tech font-bold hover:underline cursor-pointer relative z-50" style="pointer-events:auto !important;">
+<button id="erecpassForgotBtnAdded" type="button" class="w-full py-2 text-xs text-rose-400 font-tech font-bold hover:underline cursor-pointer relative z-50" style="pointer-events:auto !important; position:relative; z-index:100001;">
   Forgot Password?
 </button>
 
@@ -7283,8 +7283,27 @@ window.erecpassSupabaseLoadPatient=async function(patientId){
 function installPasswordEyes(){
   ["loginPassword","regPassword","regConfirmPassword","staffLoginPassword","adminLoginPassword"].forEach(addPasswordEye);
 }
+function installForgotPasswordButton(){
+  const b=document.getElementById('erecpassForgotBtnAdded');
+  if(!b || b.dataset.erecpassForgotReady==='1') return;
+  b.dataset.erecpassForgotReady='1';
+  const open=function(ev){
+    if(ev){ev.preventDefault();ev.stopPropagation();}
+    try{
+      if(typeof window.openErecpassForgotPassword==='function') window.openErecpassForgotPassword();
+      else alert('Forgot Password is still loading. Please try again.');
+    }catch(e){
+      console.error('[ERecPass] Forgot Password failed:',e);
+      alert('Forgot Password could not be opened. Please reload the page and try again.');
+    }
+    return false;
+  };
+  b.addEventListener('click',open,true);
+  b.addEventListener('touchend',open,{capture:true,passive:false});
+}
 function installAddedUI(){
   installPasswordEyes();
+  installForgotPasswordButton();
 
   /* Add Account Management button to an existing admin area without replacing it. */
   if(!document.getElementById('erecpassAdminAccountManagementBtn')){
@@ -7307,6 +7326,7 @@ function installAddedUI(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installAddedUI);
 else installAddedUI();
+setTimeout(installAddedUI,500);
 setTimeout(installAddedUI,1000);
 setTimeout(installAddedUI,2500);
 })();
