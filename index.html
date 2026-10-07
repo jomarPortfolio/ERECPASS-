@@ -3959,30 +3959,42 @@ async function handleAdminLogoUpload(event) {
     if(!client?.storage?.from) throw new Error('Supabase Storage is not ready. Please refresh and try again.');
 
     const blob=await (await fetch(data)).blob();
-    const path='system/logo.webp';
-    const upload=await client.storage.from('erecpass-branding').upload(path,blob,{
+    const path='system/logo-'+Date.now()+'.webp';
+    const bucket=client.storage.from('erecpass-branding');
+    const upload=await bucket.upload(path,blob,{
       contentType:'image/webp',
       cacheControl:'31536000',
-      upsert:true
+      upsert:false
     });
     if(upload.error) throw upload.error;
 
-    const publicUrl=client.storage.from('erecpass-branding').getPublicUrl(path).data.publicUrl;
+    const publicUrl=bucket.getPublicUrl(path).data.publicUrl;
     const versionedUrl=publicUrl+'?v='+Date.now();
     const userResult=await client.auth.getUser();
+    if(userResult.error) throw userResult.error;
     const adminId=userResult.data.user?.id||null;
+    if(!adminId) throw new Error('Admin session expired. Please log in again.');
+
+    const previous=await client.from('app_settings').select('setting_value').eq('setting_key','system_branding').maybeSingle();
+    if(previous.error) throw previous.error;
+    const oldPath=previous.data?.setting_value?.storage_path||'';
+
     const save=await client.from('app_settings').upsert({
       setting_key:'system_branding',
       setting_value:{logo_url:versionedUrl,storage_path:path},
       updated_by:adminId,
       updated_at:new Date().toISOString()
     },{onConflict:'setting_key'});
-    if(save.error) throw save.error;
+    if(save.error) {
+      await bucket.remove([path]).catch(()=>{});
+      throw save.error;
+    }
 
+    if(oldPath && oldPath!==path) await bucket.remove([oldPath]).catch(e=>console.warn('Old logo cleanup skipped:',e));
     applySystemLogo(versionedUrl);
     epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo_url:versionedUrl,storage_path:path}));
     addLog('Updated System Logo');
-    alert('System logo uploaded to Supabase Storage and saved permanently.');
+    alert('System logo saved permanently to Supabase Storage.');
   } catch(error) {
     console.error('System logo Storage upload failed:',error);
     alert('Could not save the logo to Supabase Storage: '+(error.message||error));
@@ -3998,10 +4010,16 @@ async function resetSystemLogo() {
   if(!client?.storage?.from) { alert('Supabase Storage is not ready. Please refresh and try again.'); return; }
 
   try {
-    const removal=await client.storage.from('erecpass-branding').remove(['system/logo.webp']);
-    if(removal.error) throw removal.error;
-
+    const previous=await client.from('app_settings').select('setting_value').eq('setting_key','system_branding').maybeSingle();
+    if(previous.error) throw previous.error;
+    const oldPath=previous.data?.setting_value?.storage_path||'';
+    const bucket=client.storage.from('erecpass-branding');
+    if(oldPath) {
+      const removal=await bucket.remove([oldPath]);
+      if(removal.error) throw removal.error;
+    }
     const userResult=await client.auth.getUser();
+    if(userResult.error) throw userResult.error;
     const adminId=userResult.data.user?.id||null;
     const save=await client.from('app_settings').upsert({
       setting_key:'system_branding',
