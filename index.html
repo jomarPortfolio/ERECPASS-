@@ -3086,40 +3086,77 @@ alert("Invalid staff name or password!");
 
 }
 
-function handleAdminLogin(e) {
+async function handleAdminLogin(e) {
+  if(e) e.preventDefault();
 
-e.preventDefault();
+  const user = document.getElementById('adminLoginUser').value.trim().toLowerCase();
+  const pass = document.getElementById('adminLoginPassword').value;
 
-const user = document.getElementById('adminLoginUser').value;
+  if(!user || !pass){
+    alert("Please enter admin email and password.");
+    return;
+  }
 
-const pass = document.getElementById('adminLoginPassword').value;
+  try {
+    if(window.erecpassSupabase?.auth){
+      const r = await window.erecpassSupabase.auth.signInWithPassword({email:user,password:pass});
+      if(r.error) throw r.error;
 
-const adminAccounts = JSON.parse(epStore.getItem(DB_KEYS.ADMIN_ACCOUNTS)) || [];
-const admin = adminAccounts.find(a =>
-(a.username.toLowerCase() === user.toLowerCase() || a.email.toLowerCase() === user.toLowerCase()) &&
-a.password === pass
-);
+      const authUser = r.data.user;
+      const profileResult = await window.erecpassSupabase
+        .from('profiles')
+        .select('role,active,full_name')
+        .eq('id',authUser.id)
+        .maybeSingle();
 
+      if(profileResult.error) throw profileResult.error;
+      const profile = profileResult.data;
 
-if (admin) {
-currentSession = { role: 'admin', data: { name: admin.name, username: admin.username } };
+      if(!profile || profile.role !== 'admin' || profile.active === false){
+        await window.erecpassSupabase.auth.signOut();
+        alert(profile?.active === false
+          ? 'This admin account is deactivated. Login is disabled.'
+          : 'This account is not enabled for Admin Login.');
+        return;
+      }
 
-epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+      currentSession = {
+        role:'admin',
+        data:{
+          id:authUser.id,
+          name:profile.full_name || authUser.email || 'Admin',
+          username:authUser.email || user,
+          email:authUser.email || user
+        }
+      };
+      epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+      addLog("Admin logged in.");
+      hideAuthPages();
+      launchPortalByRole('admin');
+      return;
+    }
+  } catch(err) {
+    console.warn('Supabase admin login:',err);
+    alert(err?.message || 'Invalid Admin Credentials!');
+    return;
+  }
 
-addLog("Admin logged in.");
+  const adminAccounts = JSON.parse(epStore.getItem(DB_KEYS.ADMIN_ACCOUNTS)) || [];
+  const admin = adminAccounts.find(a =>
+    ((a.username||'').toLowerCase() === user || (a.email||'').toLowerCase() === user) &&
+    a.password === pass
+  );
 
-hideAuthPages();
-
-launchPortalByRole('admin');
-
-} else {
-
-alert("Invalid Admin Credentials!");
-
+  if(admin){
+    currentSession = { role:'admin', data:{name:admin.name, username:admin.username, email:admin.email||user} };
+    epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+    addLog("Admin logged in.");
+    hideAuthPages();
+    launchPortalByRole('admin');
+  } else {
+    alert("Invalid Admin Credentials!");
+  }
 }
-
-}
-
 function logout() {
 
 if (currentSession && currentSession.role === 'patient') {
@@ -7094,17 +7131,17 @@ window.toggleErecpassAdminAccount=async function(type,id){
   }catch(e){alert('Could not update account status: '+(e.message||'Please try again.'))}
 };
 window.deleteErecpassAdminAccount=async function(type,id){
-  if(!confirm('Delete Account?\nThis will deactivate login access and retain existing records. Permanent Auth deletion is not enabled yet.')) return;
+  if(!confirm('Delete Account?\nThis will permanently remove the account and its linked login record. This action cannot be undone.')) return;
   const arr=type==='patient'?epPatients():epStaff();
   const target=arr.find(x=>String(x.id)===String(id)); if(!target)return;
   try{
-    const result=await window.erecpassSupabase.functions.invoke('admin-manage-account',{body:{action:'set_active',type,rowId:String(id),userId:target.user_id||target.auth_user_id||'',active:false}});
+    const result=await window.erecpassSupabase.functions.invoke('admin-manage-account',{body:{action:'delete_account',type,rowId:String(id),userId:target.user_id||target.auth_user_id||''}});
     if(result.error)throw result.error;
     if(result.data?.error)throw new Error(result.data.error);
     await window.erecpassCloudHydrate?.();
     renderErecpassAdminAccounts();
     if(typeof addLog==='function')addLog('Admin deactivated '+type+' account: '+(target.fullName||target.name||id));
-    alert('Account access deactivated. Existing records were retained.');
+    alert('Account permanently deleted. Login access and the linked account record were removed.');
   }catch(e){alert('Could not deactivate account: '+(e.message||'Please try again.'))}
 };
 
