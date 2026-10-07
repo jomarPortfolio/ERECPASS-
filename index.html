@@ -2094,11 +2094,17 @@ Already have an account?
 
 <div id="scannedPatientCard" class="hidden p-4 bg-slate-950/90 rounded-xl border border-cyan-400/40 space-y-2">
 
-<div class="flex justify-between items-center">
+<div class="flex justify-between items-center gap-3">
 
-<h3 id="scannedName" class="font-bold text-white text-base">Patient Name</h3>
+<div class="flex items-center gap-3 min-w-0">
 
-<span id="scannedStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-bold">Green</span>
+<img id="scannedPatientPhoto" src="" alt="Patient Profile" class="w-12 h-12 rounded-full object-cover border-2 border-cyan-400/50 bg-slate-900 shrink-0" style="display:none;">
+
+<h3 id="scannedName" class="font-bold text-white text-base truncate">Patient Name</h3>
+
+</div>
+
+<span id="scannedStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-bold shrink-0">Green</span>
 
 </div>
 
@@ -4076,6 +4082,18 @@ const p = patients.find(item => item.id === patientId || item.id === text);
 if (p) {
 
 document.getElementById('scannedPatientCard').classList.remove('hidden');
+
+const patientPhoto = document.getElementById('scannedPatientPhoto');
+if (patientPhoto) {
+  const photo = String(p.photo || p.profilePhoto || '').trim();
+  if (photo) {
+    patientPhoto.src = photo;
+    patientPhoto.style.display = 'block';
+  } else {
+    patientPhoto.removeAttribute('src');
+    patientPhoto.style.display = 'none';
+  }
+}
 
 document.getElementById('scannedName').innerText = p.fullName;
 
