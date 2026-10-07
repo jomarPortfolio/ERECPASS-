@@ -23,7 +23,7 @@
         put(K.E,map.emergency_numbers||{barangay:'0917-123-4567',national:'911'});
         if(window.applySystemLogo) window.applySystemLogo(branding.logo_url||branding.logo||'');
       } else {
-        err('read public branding',brandingRes.error);
+        err('read public branding',publicSettingsRes.error);
       }
       const sr=await sb().auth.getSession();if(sr.error)throw sr.error;
       const u=sr.data.session?.user;
@@ -228,29 +228,7 @@
       if(submit){submit.disabled=false;submit.textContent='CREATE ACCOUNT'}
     }
   };
-  window.handleLogin=async function(e){e?.preventDefault();const email=document.getElementById('loginEmail')?.value.trim().toLowerCase(),password=document.getElementById('loginPassword')?.value||'';try{const r=await sb().auth.signInWithPassword({email,password});if(r.error)throw r.error;const p=await profileFor(r.data.user);if(p.role!=='patient'){await sb().auth.signOut();throw Error('This account is not a patient account')}await hydrate();if(currentSession?.data?.active===false){await sb().auth.signOut();throw Error('This patient account is deactivated')}hideAuthPages();launchPortalByRole('patient')}catch(x){alert(x.message||'Login failed')}};
-  window.handleStaffLogin=async function(e){e?.preventDefault();const email=document.getElementById('staffLoginName')?.value.trim().toLowerCase(),password=document.getElementById('staffLoginPassword')?.value||'';if(!email?.includes('@')){alert('Enter the staff email address in this field.');return}try{const r=await sb().auth.signInWithPassword({email,password});if(r.error)throw r.error;const p=await profileFor(r.data.user);if(p.role!=='staff'){await sb().auth.signOut();throw Error('This account does not have the staff role')}await hydrate();if(currentSession?.data?.active===false){await sb().auth.signOut();throw Error('This staff account is deactivated')}hideAuthPages();launchPortalByRole('staff')}catch(x){alert(x.message||'Staff login failed')}};
-  window.handleAdminLogin=async function(e){
-    e?.preventDefault();
-    const email=document.getElementById('adminLoginUser')?.value.trim().toLowerCase();
-    const password=document.getElementById('adminLoginPassword')?.value||'';
-    if(!email?.includes('@')){alert('Enter the email address assigned to your Admin account.');return}
-    if(!password){alert('Enter your Admin password.');return}
-    if(!sb()?.auth){alert('Connection to the account service is not ready. Refresh the page and try again.');return}
-    try{
-      const r=await sb().auth.signInWithPassword({email,password});
-      if(r.error)throw r.error;
-      const p=await profileFor(r.data.user);
-      if(p.role!=='admin'){
-        await sb().auth.signOut();
-        throw Error('This email is registered, but it is not assigned the Admin role yet. Contact the system owner to securely enable Admin access.');
-      }
-      await hydrate();
-      hideAuthPages();
-      launchPortalByRole('admin');
-    }catch(x){alert(x.message||'Admin login failed. Check the email and password, or use Forgot Password.')}
-  };
-  window.logout=async function(){try{if(sb())await sb().auth.signOut()}catch(e){err('sign out',e)}if(channel&&sb())await sb().removeChannel(channel);channel=null;user=null;role='anon';currentSession=null;put(K.X,null);putSettings({});[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));['patientApp','staffApp','adminApp'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));showLogin()};
+  // Login handlers are defined once in the FINAL LOGIN SAFETY PATCH below.\n  window.logout=async function(){try{if(sb())await sb().auth.signOut()}catch(e){err('sign out',e)}if(channel&&sb())await sb().removeChannel(channel);channel=null;user=null;role='anon';currentSession=null;put(K.X,null);putSettings({});[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));['patientApp','staffApp','adminApp'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));showLogin()};
   const oldOnload=window.onload;window.onload=function(e){let result;try{if(typeof oldOnload==='function')result=oldOnload.call(this,e)}catch(x){err('original startup',x)};Promise.resolve().then(()=>hydrate()).catch(x=>err('startup cloud sync (page remains usable)',x));return result};
   document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('staffLoginName');if(i){i.type='email';i.placeholder='Enter staff email'}const l=document.querySelector('#staffLoginForm label');if(l)l.textContent='Staff Email';const a=document.getElementById('adminLoginUser');if(a)a.placeholder='admin2@gmail.com'});
 
