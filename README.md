@@ -33,3 +33,6 @@ If a reset link shows a 404, make sure the GitHub Pages URL is registered in Sup
 Do not put a Supabase secret/service-role key in browser code or GitHub. The browser file must contain only the publishable key.
 
 Supabase's leaked-password protection should also be enabled in Authentication security settings. This project can contain clinical-style records, so use test/fake patient data until full end-to-end testing and privacy review are complete.
+
+
+<!-- ERecPass deployment refresh: 2026-10-07T16:45:35.740Z -->
