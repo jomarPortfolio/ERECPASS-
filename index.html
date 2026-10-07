@@ -1279,7 +1279,7 @@ Loading system terms and health data agreement...
 
 </form>
 
-<button id="erecpassForgotBtnAdded" type="button" class="w-full py-2 text-xs text-rose-400 font-tech font-bold hover:underline cursor-pointer relative z-50" style="pointer-events:auto !important; position:relative; z-index:100001;">
+<button id="erecpassForgotBtnAdded" type="button" aria-label="Forgot Password" class="w-full py-2 text-xs text-rose-400 font-tech font-bold hover:underline cursor-pointer relative z-50" style="display:block !important; pointer-events:auto !important; position:relative !important; z-index:100001 !important; touch-action:manipulation !important; cursor:pointer !important;">
   Forgot Password?
 </button>
 
@@ -7285,10 +7285,14 @@ function installPasswordEyes(){
 }
 function installForgotPasswordButton(){
   const b=document.getElementById('erecpassForgotBtnAdded');
-  if(!b || b.dataset.erecpassForgotReady==='1') return;
+  if(!b) return;
+  b.style.pointerEvents='auto';
+  b.style.position='relative';
+  b.style.zIndex='100001';
+  if(b.dataset.erecpassForgotReady==='1') return;
   b.dataset.erecpassForgotReady='1';
   const open=function(ev){
-    if(ev){ev.preventDefault();ev.stopPropagation();}
+    if(ev){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();}
     try{
       if(typeof window.openErecpassForgotPassword==='function') window.openErecpassForgotPassword();
       else alert('Forgot Password is still loading. Please try again.');
@@ -7299,8 +7303,28 @@ function installForgotPasswordButton(){
     return false;
   };
   b.addEventListener('click',open,true);
+  b.addEventListener('pointerup',open,true);
   b.addEventListener('touchend',open,{capture:true,passive:false});
 }
+// Global capture fallback: opens Forgot Password even if another page layer intercepts the button click.
+document.addEventListener('click',function(ev){
+  const t=ev.target && ev.target.closest ? ev.target.closest('#erecpassForgotBtnAdded') : null;
+  if(!t) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  try{
+    if(typeof window.openErecpassForgotPassword==='function') window.openErecpassForgotPassword();
+  }catch(e){ console.error('[ERecPass] Forgot Password failed:',e); }
+},true);
+document.addEventListener('pointerup',function(ev){
+  const t=ev.target && ev.target.closest ? ev.target.closest('#erecpassForgotBtnAdded') : null;
+  if(!t) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  try{
+    if(typeof window.openErecpassForgotPassword==='function') window.openErecpassForgotPassword();
+  }catch(e){ console.error('[ERecPass] Forgot Password failed:',e); }
+},true);
 function installAddedUI(){
   installPasswordEyes();
   installForgotPasswordButton();
