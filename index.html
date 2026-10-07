@@ -1683,17 +1683,32 @@ Already have an account?
 
 <h2 class="section-title text-xs font-tech text-cyan-300 uppercase tracking-wider mb-2">Quick Navigation</h2>
 
-<div id="patientDashboardButtonGrid" class="quick-grid grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('dashboard')"><i class="fa-solid fa-chart-line text-lg text-cyan-400"></i><span class="text-xs font-tech">Dashboard</span></button>
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('hospital-map')"><i class="fa-solid fa-map text-lg text-cyan-400"></i><span class="text-xs font-tech">Map</span></button>
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('medicines')"><i class="fa-solid fa-pills text-lg text-cyan-400"></i><span class="text-xs font-tech">Meds</span></button>
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('doctors')"><i class="fa-solid fa-user-doctor text-lg text-cyan-400"></i><span class="text-xs font-tech">Staff</span></button>
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('appointments')"><i class="fa-solid fa-calendar-check text-lg text-cyan-400"></i><span class="text-xs font-tech">Appts</span></button>
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('medical-records')"><i class="fa-solid fa-file-medical text-lg text-cyan-400"></i><span class="text-xs font-tech">Records</span></button>
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('qr')"><i class="fa-solid fa-qrcode text-lg text-cyan-400"></i><span class="text-xs font-tech">My QR</span></button>
-  <button type="button" class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="patientDashboardNavigate('help')"><i class="fa-solid fa-comments text-lg text-cyan-400"></i><span class="text-xs font-tech">Chat</span></button>
+<div id="patientDashboardButtonGrid" class="quick-grid grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('dashboard')">
+    <i class="fa-solid fa-chart-line text-3xl text-blue-500"></i><span class="text-sm font-tech font-bold">Dashboard</span>
+  </button>
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('hospital-map')">
+    <i class="fa-solid fa-map text-3xl text-emerald-500"></i><span class="text-sm font-tech font-bold">Map</span>
+  </button>
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('medicines')">
+    <i class="fa-solid fa-pills text-3xl text-purple-600"></i><span class="text-sm font-tech font-bold">Meds</span>
+  </button>
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('doctors')">
+    <i class="fa-solid fa-user-doctor text-3xl text-teal-500"></i><span class="text-sm font-tech font-bold">Staff</span>
+  </button>
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('appointments')">
+    <i class="fa-solid fa-calendar-check text-3xl text-yellow-400"></i><span class="text-sm font-tech font-bold">Appts</span>
+  </button>
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('medical-records')">
+    <i class="fa-solid fa-file-medical text-3xl text-red-600"></i><span class="text-sm font-tech font-bold">Records</span>
+  </button>
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('qr')">
+    <i class="fa-solid fa-qrcode text-3xl text-sky-500"></i><span class="text-sm font-tech font-bold">My QR</span>
+  </button>
+  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('help')">
+    <i class="fa-solid fa-comments text-3xl text-orange-500"></i><span class="text-sm font-tech font-bold">Chat</span>
+  </button>
 </div>
-
 </section>
 <!-- PATIENT HOSPITAL MAP -->
 
