@@ -7319,19 +7319,7 @@ window.deleteErecpassAdminAccount=async function(type,id){
   }catch(e){alert('Could not deactivate account: '+(e.message||'Please try again.'))}
 };
 
-/* ---------- 6. Deactivated accounts cannot log in ---------- */
-function epBlockDeactivatedPatient(){
-  const email=(document.getElementById('loginEmail')||{}).value?.trim().toLowerCase();
-  const p=epPatients().find(x=>(x.email||'').toLowerCase()===email);
-  return p && p.active===false;
-}
-const priorLoginAfterAdd=window.handleLogin;
-window.handleLogin=async function(event){
-  if(epBlockDeactivatedPatient()){ if(event)event.preventDefault(); alert('This account is deactivated. Login is disabled.'); return; }
-  return priorLoginAfterAdd.call(this,event);
-};
-
-/* ---------- 7. Supabase database helpers ---------- */
+/* ---------- 6. Deactivated-account login checks are handled by the single runtime login handler. ---------- */\n/* ---------- 7. Supabase database helpers ---------- */
 window.erecpassSupabaseSyncPatient=async function(patient){
   if(!window.erecpassSupabase)return {error:new Error('Supabase is not configured')};
   return await erecpassSupabase.from('patients').upsert({
@@ -7431,34 +7419,8 @@ setTimeout(installAddedUI,2500);
 })();
 </script>
 
-<script src="./supabase-client.js?v=20261008b"></script>
-<script src="./supabase-runtime.js?v=20261008b"></script>
-<!-- ERECPASS BUTTON SAFETY: ensure account forms always reach the current handlers -->
-<script>
-(function(){
-  function wire(){
-    [
-      ['loginForm','handleLogin'],
-      ['staffLoginForm','handleStaffLogin'],
-      ['adminLoginForm','handleAdminLogin']
-    ].forEach(function(pair){
-      var form=document.getElementById(pair[0]);
-      if(!form || form.dataset.erecpassWired==='1') return;
-      form.dataset.erecpassWired='1';
-      form.addEventListener('submit',function(e){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(typeof window[pair[1]]==='function') window[pair[1]](e);
-        else alert('Login service is still loading. Please try again in a moment.');
-      },true);
-    });
-  }
-  document.addEventListener('DOMContentLoaded',wire);
-  window.addEventListener('erecpass-supabase-ready',wire);
-  setTimeout(wire,100);
-  setTimeout(wire,1000);
-})();
-</script>
+<script src="./supabase-client.js?v=20261008c"></script>
+<script src="./supabase-runtime.js?v=20261008c"></script>
 <!-- ERECPASS WHITE-SCREEN RECOVERY: reveal a usable entry screen if startup fails -->
 <script>
 (function(){
