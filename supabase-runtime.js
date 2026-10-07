@@ -303,7 +303,7 @@
     }
   });
 
-  // FINAL LOGIN SAFETY PATCH
+  // FINAL LOGIN SAFETY PATCH v2 — authenticate first, open portal immediately, sync in background
   (function(){
     async function waitForSupabaseClient(timeoutMs){
       const started=Date.now();
@@ -315,51 +315,75 @@
       }
       return window.erecpassSupabase;
     }
-    async function finishLogin(client, authUser, expectedRole, roleLabel){
-      const pr=await client.from('profiles')
-        .select('id,full_name,role,active')
-        .eq('id',authUser.id)
-        .maybeSingle();
+    function portalOpen(expectedRole){
+      const ids={patient:'patientApp',staff:'staffApp',admin:'adminApp'};
+      Object.values(ids).forEach(id=>document.getElementById(id)?.classList.add('hidden'));
+      const app=document.getElementById(ids[expectedRole]);
+      if(!app) throw new Error('The '+expectedRole+' portal is missing from this app build.');
+      app.classList.remove('hidden');
+      document.querySelectorAll('.auth-page').forEach(x=>x.classList.add('hidden'));
+    }
+    function launchSafely(expectedRole){
+      portalOpen(expectedRole);
+      try{
+        if(expectedRole==='patient') refreshPatientPortal();
+        else if(expectedRole==='staff') refreshStaffPortal();
+        else if(expectedRole==='admin') refreshAdminPortal();
+      }catch(e){
+        console.error('[ERecPass portal]',e);
+        // Keep the authenticated portal visible even if a secondary widget has an error.
+      }
+      try{
+        if(expectedRole==='patient') showPage('dashboard');
+      }catch(e){ console.error('[ERecPass page]',e); }
+    }
+    async function loadOwnRecord(client, authUser, profile, expectedRole){
+      if(expectedRole==='patient'){
+        const r=await client.from('patients').select('*').eq('user_id',authUser.id).maybeSingle();
+        if(r.error) throw r.error;
+        if(!r.data) throw new Error('Your Patient record was not found. Please contact the Admin.');
+        return patient(r.data);
+      }
+      if(expectedRole==='staff'){
+        const r=await client.from('staff').select('*').eq('user_id',authUser.id).maybeSingle();
+        if(r.error) throw r.error;
+        if(!r.data) throw new Error('Your Staff record was not found. Please contact the Admin.');
+        return staff(r.data);
+      }
+      return {id:authUser.id,user_id:authUser.id,email:authUser.email||'',name:profile.full_name||authUser.email||'Admin',fullName:profile.full_name||authUser.email||'Admin',active:true};
+    }
+    async function finishLogin(client,authUser,expectedRole,roleLabel){
+      const pr=await client.from('profiles').select('id,full_name,role,active').eq('id',authUser.id).maybeSingle();
       if(pr.error) throw pr.error;
       const profile=pr.data;
-      if(!profile) {
-        await client.auth.signOut();
-        throw new Error('Account profile was not found. Please contact the system administrator.');
-      }
-      if(profile.active===false){
-        await client.auth.signOut();
-        throw new Error('This '+roleLabel+' account is deactivated. Login is disabled.');
-      }
-      if(String(profile.role||'').toLowerCase()!==expectedRole){
-        await client.auth.signOut();
-        throw new Error('This account is not enabled for '+roleLabel+' Login.');
-      }
-      await hydrate();
-      const sessionData=currentSession?.data || {
-        id:authUser.id,
-        user_id:authUser.id,
-        email:authUser.email || '',
-        name:profile.full_name || authUser.email || roleLabel
-      };
-      currentSession={role:expectedRole,data:sessionData};
+      if(!profile) { await client.auth.signOut(); throw new Error('Account profile was not found. Please contact the system administrator.'); }
+      if(profile.active===false) { await client.auth.signOut(); throw new Error('This '+roleLabel+' account is deactivated. Login is disabled.'); }
+      if(String(profile.role||'').toLowerCase()!==expectedRole) { await client.auth.signOut(); throw new Error('This account is not enabled for '+roleLabel+' Login.'); }
+
+      const data=await loadOwnRecord(client,authUser,profile,expectedRole);
+      if(data.active===false){ await client.auth.signOut(); throw new Error('This '+roleLabel+' account is deactivated. Login is disabled.'); }
+
+      role=expectedRole; user=authUser;
+      currentSession={role:expectedRole,data};
       put(K.X,currentSession);
-      hideAuthPages();
-      launchPortalByRole(expectedRole);
+
+      // Critical: authentication and portal entry no longer wait for full-table hydration.
+      launchSafely(expectedRole);
+
+      // Secondary data sync happens after the portal is already open.
+      hydrate().catch(e=>err('background login sync',e));
     }
-    async function runLogin(formId,buttonSelector,work){
+    async function runLogin(formId,work){
       const form=document.getElementById(formId);
-      const button=form?.querySelector(buttonSelector||'button[type="submit"]');
+      const button=form?.querySelector('button[type="submit"]');
       if(button) button.disabled=true;
       try{ await work(); }
-      catch(e){
-        console.error('[ERecPass login]',e);
-        alert(e?.message||'Login failed. Please try again.');
-      }
+      catch(e){ console.error('[ERecPass login]',e); alert(e?.message||'Login failed. Please try again.'); }
       finally{ if(button) button.disabled=false; }
     }
     window.handleLogin=async function(e){
       e?.preventDefault();
-      await runLogin('loginForm','button[type="submit"]',async()=>{
+      await runLogin('loginForm',async()=>{
         const email=document.getElementById('loginEmail')?.value.trim().toLowerCase();
         const password=document.getElementById('loginPassword')?.value||'';
         if(!email||!password){alert('Please enter your email and password.');return;}
@@ -372,7 +396,7 @@
     };
     window.handleStaffLogin=async function(e){
       e?.preventDefault();
-      await runLogin('staffLoginForm','button[type="submit"]',async()=>{
+      await runLogin('staffLoginForm',async()=>{
         const email=document.getElementById('staffLoginName')?.value.trim().toLowerCase();
         const password=document.getElementById('staffLoginPassword')?.value||'';
         if(!email||!password){alert('Please enter Staff email and password.');return;}
@@ -386,7 +410,7 @@
     };
     window.handleAdminLogin=async function(e){
       e?.preventDefault();
-      await runLogin('adminLoginForm','button[type="submit"]',async()=>{
+      await runLogin('adminLoginForm',async()=>{
         const email=document.getElementById('adminLoginUser')?.value.trim().toLowerCase();
         const password=document.getElementById('adminLoginPassword')?.value||'';
         if(!email||!password){alert('Please enter Admin email and password.');return;}
@@ -398,5 +422,4 @@
       });
     };
   })();
-
 })();
