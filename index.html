@@ -1099,7 +1099,27 @@ body::before {
 }
 </style>
 <!-- END WHITE BACKGROUND THEME OVERRIDE -->
-</head>
+<style id="erecpass-staff-availability-style">
+.erecpass-availability-card{margin:0 0 20px;padding:16px;border-radius:16px;border:1px solid rgba(23,105,224,.14);background:rgba(255,255,255,.96);box-shadow:0 14px 40px rgba(18,52,86,.08)}
+.erecpass-availability-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.erecpass-availability-head h2{margin:0!important;font-size:14px!important;color:#102f4b!important}
+.erecpass-availability-refresh{font-size:10px;padding:6px 9px;border-radius:9px;border:1px solid rgba(23,105,224,.18);background:#eef6ff;color:#1769e0;font-weight:700}
+.erecpass-team-section{margin-top:12px}
+.erecpass-team-title{font-size:11px;font-weight:800;color:#31536f;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+.erecpass-staff-status-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;margin:6px 0;border:1px solid rgba(23,105,224,.10);border-radius:12px;background:#f7fafd}
+.erecpass-staff-status-name{font-size:12px;font-weight:800;color:#173b5b}
+.erecpass-staff-status-meta{font-size:10px;color:#66788a;margin-top:2px}
+.erecpass-staff-status-badge{font-size:9px;font-weight:800;padding:5px 8px;border-radius:999px;white-space:nowrap}
+.erecpass-staff-status-badge.available{background:#e7f8ef;color:#087a4b;border:1px solid #a9e4c7}
+.erecpass-staff-status-badge.unavailable{background:#fff0f0;color:#c62828;border:1px solid #f1b5b5}
+.erecpass-availability-empty{font-size:10px;color:#66788a;padding:8px 0}
+.erecpass-staff-availability-control{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:12px;border-radius:12px;background:#f7fafd;border:1px solid rgba(23,105,224,.12)}
+.erecpass-staff-availability-control strong{font-size:12px;color:#173b5b}
+.erecpass-staff-availability-control small{display:block;font-size:10px;color:#66788a;margin-top:2px}
+.erecpass-availability-toggle{border:0;border-radius:10px;padding:8px 11px;font-size:10px;font-weight:800;cursor:pointer}
+.erecpass-availability-toggle.on{background:#10a77a;color:#fff}
+.erecpass-availability-toggle.off{background:#e53935;color:#fff}
+</style>\n</head>
 
 <body class="bg-tech-grid min-h-screen relative overflow-x-hidden select-none">
 
@@ -7448,5 +7468,111 @@ setTimeout(installAddedUI,2500);
   window.addEventListener('load',function(){setTimeout(recoverEntryScreen,1200);});
 })();
 </script>
-</body>
+<script id="erecpass-staff-availability-script">
+(function(){
+'use strict';
+function availabilityStore(){
+  try{return window.epStore||window.localStorage}catch(e){return window.localStorage}
+}
+function availabilityStaff(){
+  const s=availabilityStore();
+  try{
+    const key=(window.DB_KEYS&&DB_KEYS.STAFF)||'erecpass_db_staff';
+    return JSON.parse(s.getItem(key)||'[]')||[];
+  }catch(e){return []}
+}
+function esc(v){
+  return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+}
+function isDoctor(s){
+  return /doctor|physician|medical doctor|dr\.?/i.test(String(s.role||s.role_title||''));
+}
+function isNurse(s){
+  return /nurse|nursing/i.test(String(s.role||s.role_title||''));
+}
+function renderStaffRows(list){
+  if(!list.length)return '<div class="erecpass-availability-empty">No staff listed.</div>';
+  return list.map(s=>{
+    const available=s.active!==false && s.available!==false;
+    const role=s.role||s.role_title||'Staff';
+    return '<div class="erecpass-staff-status-row">'+
+      '<div><div class="erecpass-staff-status-name">'+esc(s.name||s.fullName||'Staff Member')+'</div>'+
+      '<div class="erecpass-staff-status-meta">'+esc(role)+(s.schedule?' · '+esc(s.schedule):'')+'</div></div>'+
+      '<span class="erecpass-staff-status-badge '+(available?'available':'unavailable')+'">'+(available?'Available':'Not Available')+'</span>'+
+      '</div>';
+  }).join('');
+}
+window.renderErecpassStaffAvailability=function(){
+  const dashboard=document.getElementById('dashboard');
+  if(!dashboard)return;
+  let card=document.getElementById('erecpassStaffAvailabilityCard');
+  if(!card){
+    card=document.createElement('div');
+    card.id='erecpassStaffAvailabilityCard';
+    card.className='erecpass-availability-card';
+    const anchor=dashboard.querySelector('.welcome')?.nextElementSibling;
+    if(anchor)anchor.insertAdjacentElement('afterend',card); else dashboard.prepend(card);
+  }
+  const all=availabilityStaff().filter(s=>s.active!==false);
+  const doctors=all.filter(isDoctor),nurses=all.filter(isNurse);
+  const unavailableDoctors=doctors.filter(s=>s.available===false),availableDoctors=doctors.filter(s=>s.available!==false);
+  const unavailableNurses=nurses.filter(s=>s.available===false),availableNurses=nurses.filter(s=>s.available!==false);
+  card.innerHTML='<div class="erecpass-availability-head"><h2><i class="fa-solid fa-user-doctor" style="color:#1769e0"></i> Doctor & Nurse Availability</h2>'+
+    '<button type="button" class="erecpass-availability-refresh" onclick="renderErecpassStaffAvailability()">Refresh</button></div>'+
+    '<div class="erecpass-team-section"><div class="erecpass-team-title">Doctors · Available ('+availableDoctors.length+')</div>'+renderStaffRows(availableDoctors)+'</div>'+
+    '<div class="erecpass-team-section"><div class="erecpass-team-title">Doctors · Not Available ('+unavailableDoctors.length+')</div>'+renderStaffRows(unavailableDoctors)+'</div>'+
+    '<div class="erecpass-team-section"><div class="erecpass-team-title">Nurses · Available ('+availableNurses.length+')</div>'+renderStaffRows(availableNurses)+'</div>'+
+    '<div class="erecpass-team-section"><div class="erecpass-team-title">Nurses · Not Available ('+unavailableNurses.length+')</div>'+renderStaffRows(unavailableNurses)+'</div>'+
+    ((!doctors.length&&!nurses.length)?'<div class="erecpass-availability-empty">No doctor or nurse accounts are available yet.</div>':'');
+};
+window.setErecpassStaffAvailability=async function(){
+  const staff=availabilityStaff();
+  const me=window.currentSession?.data||window.currentSession?.user||null;
+  const id=me?.id||me?.user_id||'';
+  const row=staff.find(s=>String(s.user_id||s.id)===String(id));
+  if(!row){alert('Staff account not found.');return}
+  const next=row.available===false;
+  try{
+    if(!window.erecpassSupabase){throw new Error('Supabase is not connected.')}
+    const r=await window.erecpassSupabase.from('staff').update({available:next,updated_at:new Date().toISOString()}).eq('user_id',row.user_id);
+    if(r.error)throw r.error;
+    await window.erecpassCloudHydrate?.();
+    renderErecpassStaffAvailability();
+    installStaffAvailabilityControl();
+  }catch(e){alert('Could not update availability: '+(e.message||'Please try again.'))}
+};
+function installStaffAvailabilityControl(){
+  const app=document.getElementById('staffApp');
+  if(!app||app.classList.contains('hidden'))return;
+  if(document.getElementById('erecpassStaffAvailabilityControl'))return;
+  const host=app.querySelector('main');
+  if(!host)return;
+  const box=document.createElement('div');
+  box.id='erecpassStaffAvailabilityControl';
+  box.className='erecpass-staff-availability-control';
+  host.insertBefore(box,host.firstElementChild?.nextElementSibling||host.firstElementChild||null);
+  updateStaffAvailabilityControl();
+}
+function updateStaffAvailabilityControl(){
+  const box=document.getElementById('erecpassStaffAvailabilityControl');if(!box)return;
+  const staff=availabilityStaff(),me=window.currentSession?.data||{};
+  const row=staff.find(s=>String(s.user_id||s.id)===String(me.id||me.user_id||''));
+  if(!row){box.innerHTML='<strong>Availability</strong><small>Staff record not found.</small>';return}
+  const on=row.available!==false;
+  box.innerHTML='<div><strong>My Availability</strong><small>Patients can see this status.</small></div>'+
+    '<button type="button" class="erecpass-availability-toggle '+(on?'on':'off')+'" onclick="setErecpassStaffAvailability()">'+(on?'Available':'Not Available')+'</button>';
+}
+function syncAvailabilityUI(){
+  const patient=document.getElementById('patientApp'),staff=document.getElementById('staffApp');
+  if(patient&&!patient.classList.contains('hidden'))window.renderErecpassStaffAvailability();
+  if(staff&&!staff.classList.contains('hidden')){installStaffAvailabilityControl();updateStaffAvailabilityControl();}
+}
+const obs=new MutationObserver(syncAvailabilityUI);
+document.addEventListener('DOMContentLoaded',()=>{
+  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+  syncAvailabilityUI();
+  setInterval(syncAvailabilityUI,5000);
+});
+})();
+</script>\n</body>
 </html>
