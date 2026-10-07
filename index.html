@@ -6955,7 +6955,8 @@ window.openErecpassForgotPassword=async function(){
     const auth=window.erecpassSupabase?.auth;
     if(auth){
       const sessionResult=await auth.getSession();
-      recovery=!!sessionResult.data?.session && /(^|[#&])type=recovery(&|$)/.test(location.hash);
+      const recoveryUrl=(location.hash||'')+' '+(location.search||'');
+      recovery=!!sessionResult.data?.session && /(^|[&#?&])type=recovery(&|$|#)/.test(recoveryUrl);
     }
   }catch(e){ console.warn('Could not check password recovery session:',e); }
 
