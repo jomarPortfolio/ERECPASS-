@@ -4331,35 +4331,43 @@ async function adminPostAnnouncement() {
 }
 
 let tempAgreementPhoto = "";
+let tempAgreementPhotoReady = Promise.resolve();
 
 function handleAdminAgreementPhotoUpload(e) {
-
-const file = e.target.files[0];
-
-if (!file) return;
-
-const reader = new FileReader();
-
-reader.onload = function(evt) { tempAgreementPhoto = evt.target.result; };
-
-reader.readAsDataURL(file);
-
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    alert("Please choose an agreement image smaller than 2 MB.");
+    e.target.value = "";
+    tempAgreementPhoto = "";
+    tempAgreementPhotoReady = Promise.resolve();
+    return;
+  }
+  tempAgreementPhotoReady = new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      tempAgreementPhoto = evt.target.result || "";
+      resolve(tempAgreementPhoto);
+    };
+    reader.onerror = () => reject(new Error("Could not read the agreement image."));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function adminSaveAgreement() {
-
-const text = document.getElementById('adminAgreementText').value;
-
-const agree = { text: text, photo: tempAgreementPhoto };
-
-epStore.setItem(DB_KEYS.AGREEMENT, JSON.stringify(agree));
-
-addLog("Updated system agreement document.");
-
-loadAgreementData();
-
-try { await window.erecpassCloudFlush?.(); alert("Agreement updated and saved to Supabase."); } catch (cloudError) { console.error(cloudError); alert("Agreement changed on screen, but Supabase save failed. Please try again."); }
-
+  const text = document.getElementById('adminAgreementText').value.trim();
+  try {
+    await tempAgreementPhotoReady;
+    const agree = { text: text, photo: tempAgreementPhoto || "" };
+    epStore.setItem(DB_KEYS.AGREEMENT, JSON.stringify(agree));
+    addLog("Updated system agreement document.");
+    loadAgreementData();
+    await window.erecpassCloudFlush?.();
+    alert("Agreement updated and saved to Supabase.");
+  } catch (cloudError) {
+    console.error("Agreement save failed:", cloudError);
+    alert("Agreement changed on screen, but Supabase save failed. Please try again.");
+  }
 }
 
 function renderAdminAppointmentsList() {
