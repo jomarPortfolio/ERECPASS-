@@ -3919,22 +3919,40 @@ const reader = document.getElementById('staffQrReader');
 const card = document.getElementById('scannedPatientCard');
 if (card) card.classList.add('hidden');
 if (!reader) { alert('QR scanner area is not available.'); return; }
+if (typeof Html5Qrcode === 'undefined') {
+alert('QR camera scanner is still loading. Please wait a moment and try again.');
+return;
+}
 if (staffHtml5QrCode) {
+try { staffHtml5QrCode.stop().catch(() => {}); } catch (e) {}
 try { staffHtml5QrCode.clear(); } catch (e) {}
 staffHtml5QrCode = null;
 }
 staffHtml5QrCode = new Html5Qrcode('staffQrReader');
-staffHtml5QrCode.start(
-{ facingMode: { ideal: 'environment' } },
-{ fps: 10, qrbox: 250 },
-(decodedText) => {
+
+const onScanSuccess = (decodedText) => {
 handleScannedQrText(decodedText);
 stopStaffQrScanner();
-},
-(errorMessage) => {}
-).catch(err => {
-console.error('ERecPass QR camera error:', err);
-alert('Camera could not be opened. Please allow Camera permission and try again.');
+};
+const onScanError = () => {};
+
+Html5Qrcode.getCameras().then(cameras => {
+if (!cameras || !cameras.length) throw new Error('NO_CAMERA');
+let backCamera = cameras.find(c => /back|rear|environment|0\.5|wide/i.test(c.label));
+let cameraId = (backCamera || cameras[cameras.length - 1]).id;
+return staffHtml5QrCode.start(
+cameraId,
+{ fps: 10, qrbox: 250, aspectRatio: 1.333334 },
+onScanSuccess,
+onScanError
+);
+}).catch(err => {
+console.error('ERecPass Staff QR camera error:', err);
+let message = 'Camera could not be opened. Please allow Camera permission, then try again.';
+if (err && err.message === 'NO_CAMERA') message = 'No camera was found on this device.';
+else if (err && err.name === 'NotAllowedError') message = 'Camera permission is blocked. Allow Camera permission for ERecPass, then tap Start Camera again.';
+else if (err && err.name === 'NotReadableError') message = 'The camera is busy. Close other apps using the camera, then try again.';
+alert(message);
 try { if (staffHtml5QrCode) staffHtml5QrCode.clear(); } catch (e) {}
 staffHtml5QrCode = null;
 });
