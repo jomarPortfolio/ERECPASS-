@@ -7100,6 +7100,9 @@ window.erecpassSupabaseLoadPatient=async function(patientId){
 };
 
 /* ---------- 8. Add Forgot Password button and admin management entry ---------- */
+function installPasswordEyes(){
+  ["loginPassword","regPassword","regConfirmPassword","staffLoginPassword","adminLoginPassword"].forEach(addPasswordEye);
+}
 function installAddedUI(){
   installPasswordEyes();
 
@@ -7138,6 +7141,7 @@ setTimeout(installAddedUI,2500);
 })();
 </script>
 
+<script src="./supabase-client.js"></script>
 <script src="./supabase-runtime.js"></script>
 <!-- ERECPASS WHITE-SCREEN RECOVERY: reveal a usable entry screen if startup fails -->
 <script>
