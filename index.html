@@ -7574,5 +7574,21 @@ document.addEventListener('DOMContentLoaded',()=>{
   setInterval(syncAvailabilityUI,5000);
 });
 })();
-</script></body>
+</script>
+<script id="erecpass-staff-qr-stop-fix">
+(function(){
+  window.stopStaffQrScanner = async function(){
+    try {
+      if (typeof staffHtml5QrCode !== 'undefined' && staffHtml5QrCode) {
+        try { await staffHtml5QrCode.stop(); } catch(e) {}
+        try { staffHtml5QrCode.clear(); } catch(e) {}
+        staffHtml5QrCode = null;
+      }
+    } catch(e) { console.warn('[ERecPass] Stop QR scanner:', e); }
+    const reader=document.getElementById('staffQrReader');
+    if(reader) reader.innerHTML='';
+  };
+})();
+</script>
+</body>
 </html>
