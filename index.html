@@ -4358,10 +4358,13 @@ async function adminSaveAgreement() {
   const text = document.getElementById('adminAgreementText').value.trim();
   try {
     await tempAgreementPhotoReady;
-    const agree = { text: text, photo: tempAgreementPhoto || "" };
+    const current = JSON.parse(epStore.getItem(DB_KEYS.AGREEMENT) || '{}');
+    const photo = tempAgreementPhoto || current.photo || "";
+    const agree = { text: text, photo: photo };
     epStore.setItem(DB_KEYS.AGREEMENT, JSON.stringify(agree));
-    addLog("Updated system agreement document.");
+    await window.erecpassCloudFlush?.();
     loadAgreementData();
+    addLog("Updated system agreement document.");
     await window.erecpassCloudFlush?.();
     alert("Agreement updated and saved to Supabase.");
   } catch (cloudError) {
