@@ -6705,16 +6705,28 @@ Never place a service_role/secret key in browser code. -->
     appts.splice(index, 1);
     epStore.setItem(DB_KEYS.APPOINTMENTS, JSON.stringify(appts));
 
+    try {
+      if (typeof window.erecpassCloudFlush === 'function') {
+        await window.erecpassCloudFlush();
+      }
+      if (typeof syncAllLocalAppointments === 'function') {
+        await syncAllLocalAppointments();
+      }
+      if (typeof window.erecpassCloudFlush === 'function') {
+        await window.erecpassCloudFlush();
+      }
+    } catch (e) {
+      console.error('Admin appointment delete cloud save failed:', e);
+      alert('Appointment was removed from this screen, but the Supabase delete could not be confirmed. Please check your connection and try again.');
+      return;
+    }
+
     if (typeof addLog === 'function') {
       addLog('Admin deleted appointment for ' + (deletedAppointment.patientName || 'patient') + '.');
     }
 
     selectedDeleteAppointmentId = null;
     document.getElementById('erecpassDeleteAppointmentModal').classList.remove('active');
-
-    if (typeof syncAllLocalAppointments === 'function') {
-      try { syncAllLocalAppointments(); } catch (e) { console.warn(e); }
-    }
 
     if (typeof window.renderAdminAppointmentsList === 'function') {
       window.renderAdminAppointmentsList();
