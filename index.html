@@ -4218,7 +4218,10 @@ if (tabName === 'patients') document.getElementById('adminTabPatients').classLis
 
 if (tabName === 'staff') document.getElementById('adminTabStaff').classList.remove('hidden');
 
-if (tabName === 'announcements') document.getElementById('adminTabAnnouncements').classList.remove('hidden');
+if (tabName === 'announcements') {
+  document.getElementById('adminTabAnnouncements').classList.remove('hidden');
+  if (typeof renderAdminAnnouncementList === 'function') renderAdminAnnouncementList();
+}
 
 if (tabName === 'agreement') document.getElementById('adminTabAgreement').classList.remove('hidden');
 
