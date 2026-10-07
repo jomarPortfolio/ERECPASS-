@@ -56,55 +56,109 @@
     }finally{loading=false}
   }
   async function persist(k,oldRaw,newRaw,attempt=0){
-    // Never drop an admin write just because a realtime refresh is running.
-    // Writes are queued by epStore.setItem and will execute after hydration settles.
     if(!sb()||!user)return;
     const old=parse(oldRaw),a=parse(newRaw),client=sb();
     try{
       if(k===K.P){
         if(role==='patient'){
           const before=new Map(old.map(p=>[String(p.id),p]));
-          for(const p of a){const o=before.get(String(p.id));if(o&&JSON.stringify([o.fullName,o.sim,o.photo,o.ageCategory,o.guardianNum])!==JSON.stringify([p.fullName,p.sim,p.photo,p.ageCategory,p.guardianNum])&&(p.user_id===user.id||p.id===user.id)){
-            const r=await client.rpc('update_own_patient_profile',{p_full_name:p.fullName??null,p_sim:p.sim??null,p_photo:p.photo??null,p_age_category:p.ageCategory??null,p_guardian_num:p.guardianNum??null,p_lab_results:p.labResults??null,p_prescriptions:p.prescriptions??null,p_doctor_notes:p.doctorNotes??null});if(r.error)throw r.error;
-          }}
+          for(const p of a){
+            const o=before.get(String(p.id));
+            if(o&&JSON.stringify([o.fullName,o.sim,o.photo,o.ageCategory,o.guardianNum,o.labResults,o.prescriptions,o.doctorNotes])!==JSON.stringify([p.fullName,p.sim,p.photo,p.ageCategory,p.guardianNum,p.labResults,p.prescriptions,p.doctorNotes])&&(p.user_id===user.id||p.id===user.id)){
+              const r=await client.rpc('update_own_patient_profile',{
+                p_full_name:p.fullName??null,p_sim:p.sim??null,p_photo:p.photo??null,
+                p_age_category:p.ageCategory??null,p_guardian_num:p.guardianNum??null,
+                p_lab_results:p.labResults??null,p_prescriptions:p.prescriptions??null,
+                p_doctor_notes:p.doctorNotes??null
+              });if(r.error)throw r.error;
+            }
+          }
+          const vr=await client.from('patients').select('id').eq('user_id',user.id).maybeSingle();
+          if(vr.error)throw vr.error;
+          if(!vr.data)throw Error('Patient record was not verified in Supabase');
         }else if(role==='admin'||role==='staff'){
-          const rows=a.map(p=>({id:String(p.id),user_id:p.user_id||p.auth_user_id||null,full_name:p.fullName||p.full_name||p.name||'',email:p.email||'',sim:p.sim||'',photo:p.photo||'',age_category:p.ageCategory||p.age_category||'',guardian_num:p.guardianNum||p.guardian_num||'',status:p.status||'Green',lab_results:p.labResults||p.lab_results||[],prescriptions:p.prescriptions||[],doctor_notes:p.doctorNotes||p.doctor_notes||'',online:!!p.online,active:p.active!==false}));
-          if(rows.length){const r=await client.from('patients').upsert(rows,{onConflict:'id'});if(r.error)throw r.error}
-          const keep=new Set(a.map(p=>String(p.id))),del=old.filter(p=>!keep.has(String(p.id))).map(p=>String(p.id));
-          if(del.length&&role==='admin'){const r=await client.from('patients').delete().in('id',del);if(r.error)throw r.error}
+          const rows=a.map(p=>({
+            id:String(p.id),user_id:p.user_id||p.auth_user_id||null,full_name:p.fullName||p.full_name||p.name||'',
+            email:p.email||'',sim:p.sim||'',photo:p.photo||'',age_category:p.ageCategory||p.age_category||'',
+            guardian_num:p.guardianNum||p.guardian_num||'',status:p.status||'Green',
+            lab_results:p.labResults||p.lab_results||[],prescriptions:p.prescriptions||[],
+            doctor_notes:p.doctorNotes||p.doctor_notes||'',online:!!p.online,active:p.active!==false
+          }));
+          if(rows.length){
+            const r=await client.from('patients').upsert(rows,{onConflict:'id'});
+            if(r.error)throw r.error;
+            const ids=rows.map(x=>x.id);
+            const vr=await client.from('patients').select('id').in('id',ids);
+            if(vr.error)throw vr.error;
+            if((vr.data||[]).length!==ids.length)throw Error('Patient record save could not be verified');
+          }
+          const keep=new Set(a.map(p=>String(p.id)));
+          const del=old.filter(p=>!keep.has(String(p.id))).map(p=>String(p.id));
+          if(del.length&&role==='admin'){
+            const r=await client.from('patients').delete().in('id',del);if(r.error)throw r.error;
+          }
         }
       }else if(k===K.S&&role==='admin'){
         const rows=a.map(s=>({id:String(s.id),user_id:s.user_id||null,name:s.name||s.fullName||'',email:s.email||'',role_title:s.role||s.role_title||'',task:s.task||'',available:s.available!==false,schedule:s.schedule||'',active:s.active!==false}));
-        if(rows.length){const r=await client.from('staff').upsert(rows,{onConflict:'id'});if(r.error)throw r.error}
+        if(rows.length){
+          const r=await client.from('staff').upsert(rows,{onConflict:'id'});if(r.error)throw r.error;
+          const vr=await client.from('staff').select('id').in('id',rows.map(x=>x.id));if(vr.error)throw vr.error;
+          if((vr.data||[]).length!==rows.length)throw Error('Staff save could not be verified');
+        }
         const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
         if(del.length){const r=await client.from('staff').delete().in('id',del);if(r.error)throw r.error}
       }else if(k===K.B){
         const rows=a.map(x=>({legacy_id:String(x.id),patient_id:String(x.patientId||x.patient_id||''),patient_name:x.patientName||x.patient_name||'',doctor:x.doctor||'',appointment_date:x.date||x.appointment_date||null,reason:x.reason||'',status:x.status||'Pending Approval',created_by:user.id}));
-        if(rows.length){const r=await client.from('appointments').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error}
+        if(rows.length){
+          const r=await client.from('appointments').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error;
+          const vr=await client.from('appointments').select('legacy_id').in('legacy_id',rows.map(x=>x.legacy_id));if(vr.error)throw vr.error;
+          if((vr.data||[]).length!==rows.length)throw Error('Appointment save could not be verified');
+        }
         const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
         if(del.length&&role==='admin'){const r=await client.from('appointments').delete().in('legacy_id',del);if(r.error)throw r.error}
       }else if(k===K.N&&role==='admin'){
         const rows=a.map(x=>({legacy_id:String(x.id),body:x.text||x.body||'',photo:x.photo||'',published_on:x.date||x.published_on||null,created_by:user.id}));
-        if(rows.length){const r=await client.from('announcements').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error}
+        if(rows.length){
+          const r=await client.from('announcements').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error;
+          const vr=await client.from('announcements').select('legacy_id').in('legacy_id',rows.map(x=>x.legacy_id));if(vr.error)throw vr.error;
+          if((vr.data||[]).length!==rows.length)throw Error('Announcement save could not be verified');
+        }
         const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
         if(del.length){const r=await client.from('announcements').delete().in('legacy_id',del);if(r.error)throw r.error}
       }else if(k===K.C){
-        for(const x of a){if(!x.message&&!x.text)continue;const r=await client.from('help_center_messages').upsert({legacy_id:String(x.id||crypto.randomUUID()),user_id:x.user_id||user.id,full_name:x.fullName||x.full_name||currentSession?.data?.fullName||currentSession?.data?.name||'',email:x.email||user.email||'',message:x.message||x.text||'',admin_reply:x.reply||x.admin_reply||'',status:x.status||'New'},{onConflict:'legacy_id'});if(r.error)throw r.error}
+        for(const x of a){
+          if(!x.message&&!x.text)continue;
+          const id=String(x.id||crypto.randomUUID());
+          const r=await client.from('help_center_messages').upsert({legacy_id:id,user_id:x.user_id||user.id,full_name:x.fullName||x.full_name||currentSession?.data?.fullName||currentSession?.data?.name||'',email:x.email||user.email||'',message:x.message||x.text||'',admin_reply:x.reply||x.admin_reply||'',status:x.status||'New'},{onConflict:'legacy_id'});
+          if(r.error)throw r.error;
+        }
       }else if(k===K.T&&role==='admin'){
         const v=parse(newRaw,{});
         const r=await client.from('app_settings').upsert({setting_key:'system_branding',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
         if(r.error)throw r.error;
+        const vr=await client.from('app_settings').select('setting_value').eq('setting_key','system_branding').maybeSingle();
+        if(vr.error)throw vr.error;
+        if(JSON.stringify(vr.data?.setting_value||{})!==JSON.stringify(v))throw Error('System branding save could not be verified');
       }else if(k===K.G&&role==='admin'){
         const v=parse(newRaw,{});
         const r=await client.from('app_settings').upsert({setting_key:'system_agreement',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
         if(r.error)throw r.error;
+        const vr=await client.from('app_settings').select('setting_value').eq('setting_key','system_agreement').maybeSingle();
+        if(vr.error)throw vr.error;
+        if(JSON.stringify(vr.data?.setting_value||{})!==JSON.stringify(v))throw Error('Agreement save could not be verified');
       }else if(k===K.E&&role==='admin'){
         const v=parse(newRaw,{});
         const r=await client.from('app_settings').upsert({setting_key:'emergency_numbers',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
         if(r.error)throw r.error;
+        const vr=await client.from('app_settings').select('setting_value').eq('setting_key','emergency_numbers').maybeSingle();
+        if(vr.error)throw vr.error;
+        if(JSON.stringify(vr.data?.setting_value||{})!==JSON.stringify(v))throw Error('Emergency numbers save could not be verified');
       }else if(k===K.L){
         const seen=new Set(old.map(x=>String(x.timestamp)+'|'+String(x.text)));
-        for(const x of a.filter(x=>!seen.has(String(x.timestamp)+'|'+String(x.text)))){const r=await client.from('activity_logs').insert({actor_id:user.id,event_text:String(x.text||'Activity')});if(r.error)throw r.error}
+        for(const x of a.filter(x=>!seen.has(String(x.timestamp)+'|'+String(x.text)))){
+          const r=await client.from('activity_logs').insert({actor_id:user.id,event_text:String(x.text||'Activity')});
+          if(r.error)throw r.error;
+        }
       }
     }catch(e){
       err('write '+k,e);
@@ -113,9 +167,11 @@
         await new Promise(r=>setTimeout(r,700*(attempt+1)));
         return persist(k,oldRaw,newRaw,attempt+1);
       }
+      throw e;
     }
   }
-  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(![K.X,K.A].includes(k)&&user){queue=queue.then(async()=>{while(loading)await new Promise(r=>setTimeout(r,50));await persist(k,old,n)}).catch(e=>err('write queue',e))}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&k!==K.T&&old!==undefined&&user)queue=queue.then(async()=>{while(loading)await new Promise(r=>setTimeout(r,50));await persist(k,old,'[]')}).catch(e=>err('remove',e))},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
+  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(![K.X,K.A].includes(k)&&user){queue=queue.then(()=>persist(k,old,n)).catch(e=>{err('write queue',e);throw e})}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&k!==K.T&&old!==undefined&&user)queue=queue.then(()=>persist(k,old,'[]')).catch(e=>{err('remove',e);throw e})},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
+  window.erecpassCloudFlush=()=>queue;
   window.erecpassCloudHydrate=hydrate;
   const profileFor=async u=>{const r=await sb().from('profiles').select('id,full_name,role,active').eq('id',u.id).single();if(r.error)throw r.error;if(r.data.active===false)throw Error('This account is deactivated');return r.data};
   // The old SMS button only generated a code in this browser; it did not send a real SMS.
