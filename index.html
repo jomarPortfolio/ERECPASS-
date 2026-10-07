@@ -3474,48 +3474,42 @@ container.innerHTML += `
 }
 
 
-function renderPatientAppointments() {
-
-const allAppts = JSON.parse(epStore.getItem(DB_KEYS.APPOINTMENTS)) || [];
-
-const myAppts = allAppts.filter(a => a.patientId === currentSession.data.id);
-
+async function renderPatientAppointments() {
 const container = document.getElementById('patientAppointmentList');
+if (!container) return;
+container.innerHTML = '<p class="text-xs text-slate-400 p-2">Loading appointments...</p>';
 
-container.innerHTML = "";
+try {
+  const client = window.erecpassSupabase;
+  const patientId = currentSession?.data?.id;
+  if (!client || !patientId) throw new Error('Appointment service is not ready.');
 
-if (myAppts.length === 0) {
+  const { data, error } = await client.from('appointments')
+    .select('id,patient_id,patient_name,doctor,appointment_date,reason,status,updated_at')
+    .eq('patient_id', String(patientId))
+    .order('appointment_date', { ascending: true });
 
-container.innerHTML = `<p class="text-xs text-slate-400 p-2">No scheduled appointments.</p>`;
+  if (error) throw error;
+  const myAppts = data || [];
+  if (!myAppts.length) {
+    container.innerHTML = '<p class="text-xs text-slate-400 p-2">No scheduled appointments.</p>';
+    return;
+  }
 
-return;
-
+  container.innerHTML = myAppts.map(a => `
+    <div class="list-card p-3.5 rounded-xl flex items-center justify-between">
+      <div>
+        <strong class="text-white text-xs block">${a.reason || 'Appointment'}</strong>
+        <p class="text-[11px] text-slate-400"><i class="fa-solid fa-user-doctor mr-1"></i>${a.doctor || 'Doctor'}</p>
+        <p class="text-[11px] text-cyan-400 mt-0.5"><i class="fa-regular fa-clock mr-1"></i>${a.appointment_date || ''}</p>
+      </div>
+      <span class="px-2.5 py-1 bg-cyan-950/80 border border-cyan-400/40 text-cyan-300 rounded-full text-[10px] font-tech font-bold">${a.status || 'Pending Approval'}</span>
+    </div>
+  `).join('');
+} catch (e) {
+  console.error('[ERecPass] Patient appointments:', e);
+  container.innerHTML = '<p class="text-xs text-rose-300 p-2">Unable to load appointments. Please refresh.</p>';
 }
-
-myAppts.forEach(a => {
-
-container.innerHTML += `
-
-<div class="list-card p-3.5 rounded-xl flex items-center justify-between">
-
-<div>
-
-<strong class="text-white text-xs block">${a.reason}</strong>
-
-<p class="text-[11px] text-slate-400"><i class="fa-solid fa-user-doctor mr-1"></i>${a.doctor}</p>
-
-<p class="text-[11px] text-cyan-400 mt-0.5"><i class="fa-regular fa-clock mr-1"></i>${a.date}</p>
-
-</div>
-
-<span class="px-2.5 py-1 bg-cyan-950/80 border border-cyan-400/40 text-cyan-300 rounded-full text-[10px] font-tech font-bold">${a.status}</span>
-
-</div>
-
-`;
-
-});
-
 }
 
 function renderPatientLabResults() {
@@ -4680,56 +4674,82 @@ async function adminSaveAgreement() {
   }
 }
 
-function renderAdminAppointmentsList() {
-
-const appts = JSON.parse(epStore.getItem(DB_KEYS.APPOINTMENTS)) || [];
-
+async function renderAdminAppointmentsList() {
 const container = document.getElementById('adminAppointmentsList');
+if (!container) return;
+container.innerHTML = '<p class="text-xs text-slate-400 p-2">Loading appointments...</p>';
 
-container.innerHTML = "";
+try {
+  const client = window.erecpassSupabase;
+  if (!client) throw new Error('Supabase is not ready.');
 
-appts.forEach(a => {
+  const { data, error } = await client.from('appointments')
+    .select('id,patient_id,patient_name,doctor,appointment_date,reason,status,updated_at')
+    .order('appointment_date', { ascending: true });
 
-container.innerHTML += `
+  if (error) throw error;
+  const appts = data || [];
 
-<div class="glass-card p-3 rounded-xl flex justify-between items-center text-xs">
+  if (!appts.length) {
+    container.innerHTML = '<p class="text-xs text-slate-400 p-2">No appointments found.</p>';
+    return;
+  }
 
-<div>
-
-<strong class="text-white block">${a.patientName} - ${a.reason}</strong>
-
-<p class="text-slate-400">Doctor: ${a.doctor} · Date: ${a.date}</p>
-
-</div>
-
-<div class="flex gap-1">
-
-<button onclick="updateApptStatus(${a.id}, 'Approved')" class="px-2 py-1 bg-emerald-950 text-emerald-300 rounded font-tech text-[10px]">Approve</button>
-
-<button onclick="updateApptStatus(${a.id}, 'Cancelled')" class="px-2 py-1 bg-rose-950 text-rose-300 rounded font-tech text-[10px]">Cancel</button>
-
-</div>
-
-</div>
-
-`;
-
-});
+  container.innerHTML = appts.map(a => {
+    const status = a.status || 'Pending Approval';
+    const isFinal = status === 'Cancelled' || status === 'Approved';
+    return `
+      <div class="glass-card p-3 rounded-xl flex justify-between items-center text-xs">
+        <div>
+          <strong class="text-white block">${a.patient_name || 'Patient'} - ${a.reason || 'Appointment'}</strong>
+          <p class="text-slate-400">Doctor: ${a.doctor || '—'} · Date: ${a.appointment_date || '—'}</p>
+          <span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-slate-900/70 text-cyan-300 text-[9px] font-tech">${status}</span>
+        </div>
+        <div class="flex gap-1 flex-wrap justify-end">
+          ${status !== 'Approved' && status !== 'Cancelled' ? '<button onclick="updateApptStatus(\''+a.id+'\',\'Approved\')" class="px-2 py-1 bg-emerald-950 text-emerald-300 rounded font-tech text-[10px]">Approve</button>' : ''}
+          ${status !== 'Cancelled' ? '<button onclick="updateApptStatus(\''+a.id+'\',\'Cancelled\')" class="px-2 py-1 bg-rose-950 text-rose-300 rounded font-tech text-[10px]">Cancel</button>' : ''}
+          <button onclick="deleteAppt(\''+a.id+'\')" class="px-2 py-1 bg-slate-800 text-slate-300 rounded font-tech text-[10px]">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+} catch (e) {
+  console.error('[ERecPass] Admin appointments:', e);
+  container.innerHTML = '<p class="text-xs text-rose-300 p-2">Unable to load appointments. Please refresh.</p>';
+}
 
 }
 
-function updateApptStatus(id, status) {
+async function updateApptStatus(id, status) {
+try {
+  const client = window.erecpassSupabase;
+  if (!client) throw new Error('Supabase is not ready.');
+  const { error } = await client.from('appointments').update({
+    status: status,
+    updated_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) throw error;
+  await renderAdminAppointmentsList();
+  if (typeof renderPatientAppointments === 'function' && currentSession?.role === 'patient') {
+    await renderPatientAppointments();
+  }
+} catch (e) {
+  console.error('[ERecPass] Update appointment:', e);
+  alert('Could not update appointment: ' + (e.message || 'Please try again.'));
+}
+}
 
-const appts = JSON.parse(epStore.getItem(DB_KEYS.APPOINTMENTS)) || [];
-
-const a = appts.find(i => i.id === id);
-
-a.status = status;
-
-epStore.setItem(DB_KEYS.APPOINTMENTS, JSON.stringify(appts));
-
-renderAdminAppointmentsList();
-
+async function deleteAppt(id) {
+if (!confirm('Delete Appointment?\\nThis will permanently remove the patient\'s booking.')) return;
+try {
+  const client = window.erecpassSupabase;
+  if (!client) throw new Error('Supabase is not ready.');
+  const { error } = await client.from('appointments').delete().eq('id', id);
+  if (error) throw error;
+  await renderAdminAppointmentsList();
+} catch (e) {
+  console.error('[ERecPass] Delete appointment:', e);
+  alert('Could not delete appointment: ' + (e.message || 'Please try again.'));
+}
 }
 
 function renderAdminPatientChatList() {
