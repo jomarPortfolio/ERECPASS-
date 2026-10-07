@@ -3943,9 +3943,21 @@ function handleAdminLogoUpload(event) {
       ctx.drawImage(img,0,0,canvas.width,canvas.height);
       const data=canvas.toDataURL('image/webp',0.82);
       applySystemLogo(data);
-      epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo:data}));
-      addLog('Updated System Logo');
-      alert('System logo updated successfully.');
+      const client=window.erecpassSupabase;
+      if(!client?.from) { alert('Supabase connection is not ready. Please refresh and try again.'); return; }
+      try {
+        const { error } = await client.from('app_settings').upsert(
+          { setting_key:'system_branding', setting_value:{logo:data}, updated_by:window.erecpassSupabase.auth ? (await client.auth.getUser()).data.user?.id : null, updated_at:new Date().toISOString() },
+          { onConflict:'setting_key' }
+        );
+        if(error) throw error;
+        epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo:data}));
+        addLog('Updated System Logo');
+        alert('System logo saved permanently.');
+      } catch(error) {
+        console.error('System logo save failed:', error);
+        alert('Logo was previewed, but could not be saved to the server: '+(error.message||error));
+      }
     };
     img.src=e.target.result;
   };
@@ -3956,8 +3968,21 @@ function resetSystemLogo() {
   if (typeof role !== 'undefined' && role !== 'admin') { alert('Admin access required.'); return; }
   if(!confirm('Reset the system logo to the default logo?')) return;
   applySystemLogo('');
-  epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo:''}));
-  addLog('Reset System Logo');
+  const client=window.erecpassSupabase;
+  if(client?.from) {
+    try {
+      const { error } = await client.from('app_settings').upsert(
+        { setting_key:'system_branding', setting_value:{logo:''}, updated_by:window.erecpassSupabase.auth ? (await client.auth.getUser()).data.user?.id : null, updated_at:new Date().toISOString() },
+        { onConflict:'setting_key' }
+      );
+      if(error) throw error;
+      epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo:''}));
+      addLog('Reset System Logo');
+    } catch(error) {
+      console.error('System logo reset failed:', error);
+      alert('Could not save the reset: '+(error.message||error));
+    }
+  }
 }
 
 function switchAdminTab(tabName) {
