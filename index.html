@@ -4653,20 +4653,10 @@ alert('Select a logo image first.');
 return;
 }
 
-const reader = new FileReader();
-reader.onload = function(evt) {
-const dataUrl = evt.target.result;
-epStore.setItem('erecpass_app_logo', dataUrl);
-
-// Apply the logo to the existing visible brand/logo areas
-document.querySelectorAll('.logo-icon, .brand > div:first-child').forEach(el => {
-el.innerHTML = '<img src="' + dataUrl + '" alt="ERecPass Logo" class="w-full h-full object-contain rounded-xl">';
+// Route this legacy Settings upload through the verified Supabase Storage saver.
+handleAdminLogoUpload({ target: input }).catch(function(error) {
+  console.error('Admin logo save failed:', error);
 });
-
-if (typeof addLog === 'function') addLog('Admin updated the ERecPass app logo.');
-alert('App logo updated.');
-};
-reader.readAsDataURL(file);
 }
 
 function uipaquibsLoadSavedLogo() {
