@@ -7050,6 +7050,13 @@ window.saveErecpassAdminAccount=async function(type,id){
     const result=await window.erecpassSupabase.functions.invoke('admin-manage-account',{body:{action:'update_account',type,rowId:String(id),userId:a.user_id||a.auth_user_id||'',fullName:name,email}});
     if(result.error)throw result.error;
     if(result.data?.error)throw new Error(result.data.error);
+    const newPassword=document.getElementById('epEditPassword')?.value||'';
+    if(newPassword){
+      if(newPassword.length<8){alert('New password must be at least 8 characters.');return;}
+      const passwordResult=await window.erecpassSupabase.functions.invoke('admin-manage-account',{body:{action:'change_password',userId:a.user_id||a.auth_user_id||'',password:newPassword}});
+      if(passwordResult.error)throw passwordResult.error;
+      if(passwordResult.data?.error)throw new Error(passwordResult.data.error);
+    }
     await window.erecpassCloudHydrate?.();
     document.getElementById('erecpassEditAccountModal')?.classList.remove('active');
     renderErecpassAdminAccounts();
