@@ -4300,32 +4300,32 @@ renderAdminStaffList();
 
 }
 
-function adminPostAnnouncement() {
-
-const text = document.getElementById('adminAnnouncementText').value;
-
-if (!text) return;
-
-const announcements = JSON.parse(epStore.getItem(DB_KEYS.ANNOUNCEMENTS)) || [];
-
-announcements.unshift({
-
-id: Date.now(),
-
-text: text,
-
-photo: "",
-
-date: new Date().toISOString().split('T')[0]
-
-});
-
-epStore.setItem(DB_KEYS.ANNOUNCEMENTS, JSON.stringify(announcements));
-
-addLog("Posted Announcement: " + text);
-
-alert("Announcement posted.");
-
+async function adminPostAnnouncement() {
+  const text = document.getElementById('adminAnnouncementText').value.trim();
+  const photoInput = document.getElementById('adminAnnouncementPhoto');
+  const file = photoInput && photoInput.files ? photoInput.files[0] : null;
+  if (!text && !file) return;
+  try {
+    let photo = "";
+    if (file) {
+      if (!file.type.startsWith('image/')) throw new Error('Please select an image file.');
+      if (file.size > 2 * 1024 * 1024) throw new Error('Please choose an image smaller than 2 MB.');
+      photo = await new Promise((resolve,reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result || "");
+        reader.onerror = () => reject(new Error('Could not read the announcement photo.'));
+        reader.readAsDataURL(file);
+      });
+    }
+    const announcements = JSON.parse(epStore.getItem(DB_KEYS.ANNOUNCEMENTS)) || [];
+    announcements.unshift({ id: Date.now(), text, photo, date: new Date().toISOString().split('T')[0] });
+    epStore.setItem(DB_KEYS.ANNOUNCEMENTS, JSON.stringify(announcements));
+    addLog("Posted Announcement: " + (text || 'Photo announcement'));
+    if (photoInput) photoInput.value = '';
+    alert("Announcement posted and saved to Supabase.");
+  } catch (error) {
+    alert('Could not save the announcement: ' + (error.message || error));
+  }
 }
 
 let tempAgreementPhoto = "";
