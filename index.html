@@ -3993,11 +3993,26 @@ async function handleAdminLogoUpload(event) {
       throw save.error;
     }
 
+    // Verify the database now points to the new logo before touching the old file.
+    const verify=await client.from('app_settings')
+      .select('setting_value')
+      .eq('setting_key','system_branding')
+      .maybeSingle();
+    if(verify.error) {
+      await bucket.remove([path]).catch(()=>{});
+      throw verify.error;
+    }
+    const savedBranding=verify.data?.setting_value||{};
+    if(savedBranding.storage_path!==path || savedBranding.logo_url!==versionedUrl) {
+      await bucket.remove([path]).catch(()=>{});
+      throw new Error('Supabase accepted the upload but did not persist the new system-logo setting.');
+    }
+
     if(oldPath && oldPath!==path) await bucket.remove([oldPath]).catch(e=>console.warn('Old logo cleanup skipped:',e));
     applySystemLogo(versionedUrl);
-    epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo_url:versionedUrl,storage_path:path}));
+    if(window.epStore) epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo_url:versionedUrl,storage_path:path}));
     addLog('Updated System Logo');
-    alert('System logo saved permanently to Supabase Storage.');
+    alert('System logo saved permanently to Supabase. It will remain after refresh and on other devices.');
   } catch(error) {
     console.error('System logo Storage upload failed:',error);
     alert('Could not save the logo to Supabase Storage: '+(error.message||error));
@@ -4032,8 +4047,18 @@ async function resetSystemLogo() {
     },{onConflict:'setting_key'});
     if(save.error) throw save.error;
 
+    const verify=await client.from('app_settings')
+      .select('setting_value')
+      .eq('setting_key','system_branding')
+      .maybeSingle();
+    if(verify.error) throw verify.error;
+    const savedBranding=verify.data?.setting_value||{};
+    if(savedBranding.logo_url || savedBranding.storage_path) {
+      throw new Error('Supabase did not persist the logo reset.');
+    }
+
     applySystemLogo('');
-    epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo_url:'',storage_path:''}));
+    if(window.epStore) epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo_url:'',storage_path:''}));
     addLog('Reset System Logo');
     alert('System logo reset permanently.');
   } catch(error) {
@@ -5853,8 +5878,8 @@ html:not(.ep-dark){color-scheme:light}
 <script>
 (function(){
 const root=document.documentElement,themeBtn=document.getElementById('epThemeBtn'),language=document.getElementById('epLanguage');
-function readSetting(key,fallback){try{const v=window.localStorage.getItem(key);if(v!==null)return v}catch(e){}try{if(window.epStore){const v=window.epStore.getItem(key);if(v!==null)return v}}catch(e){}return fallback}
-function writeSetting(key,value){try{window.localStorage.setItem(key,value)}catch(e){}try{if(window.epStore)window.epStore.setItem(key,value)}catch(e){}}
+function readSetting(key,fallback){try{if(window.epStore){const v=window.epStore.getItem(key);if(v!==null)return v}}catch(e){}return fallback}
+function writeSetting(key,value){try{if(window.epStore)window.epStore.setItem(key,value)}catch(e){}}
 if(readSetting('erecpass_theme','light')==='dark')root.classList.add('ep-dark');else root.classList.remove('ep-dark');
 language.value=readSetting('erecpass_language','en');
 function paintTheme(){const dark=root.classList.contains('ep-dark');themeBtn.textContent=dark?'☀️ Light':'🌙 Dark';themeBtn.setAttribute('aria-pressed',String(dark));themeBtn.setAttribute('title',dark?'Switch to light mode':'Switch to dark mode');root.style.colorScheme=dark?'dark':'light'}
@@ -6920,7 +6945,7 @@ window.handleLogin=async function(event){
     }
   }catch(e){ supaError=e; console.warn('Supabase login:',e); }
 
-  /* Never fall back to localStorage passwords when Supabase Auth is configured. */
+  /* Supabase Auth is the only authentication source. */
   if(window.erecpassSupabase?.auth){
     alert(supaError?.message||'Login failed. Check your email, password, and email confirmation.');
     return;
