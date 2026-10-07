@@ -7025,6 +7025,18 @@ window.epInitPasswordRecoveryListener=function(){
       epShowPasswordRecoveryForm();
     }
   });
+  // Also handle a recovery link after the page has already initialized.
+  // Supabase's recovery session is identified by type=recovery in the URL hash.
+  setTimeout(async function(){
+    try{
+      if(!/(^|[#&])type=recovery(&|$)/.test(location.hash)) return;
+      const r=await auth.getSession();
+      if(r.data?.session){
+        window.epPasswordRecoveryReady=true;
+        epShowPasswordRecoveryForm();
+      }
+    }catch(e){ console.warn('Password recovery session check:',e); }
+  },150);
 };
 try{ window.epInitPasswordRecoveryListener(); }catch(e){ console.warn('Password recovery listener:',e); }
 
