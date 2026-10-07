@@ -3949,7 +3949,7 @@ async function handleAdminLogoUpload(event) {
           const ctx=canvas.getContext('2d');
           if(!ctx){reject(new Error('Could not prepare the image.'));return;}
           ctx.drawImage(img,0,0,canvas.width,canvas.height);
-          resolve(canvas.toDataURL('image/webp',0.82));
+          resolve(canvas.toDataURL('image/webp',0.86));
         };
         img.onerror=()=>reject(new Error('The selected image could not be read.'));
         img.src=e.target.result;
@@ -3959,68 +3959,37 @@ async function handleAdminLogoUpload(event) {
     });
 
     const client=window.erecpassSupabase;
-    if(!client?.storage?.from) throw new Error('Supabase Storage is not ready. Please refresh and try again.');
+    if(!client?.functions?.invoke) throw new Error('Supabase Functions is not ready. Please refresh and try again.');
 
-    const blob=await (await fetch(data)).blob();
-    const path='system/logo-'+Date.now()+'.webp';
-    const bucket=client.storage.from('erecpass-branding');
-    const upload=await bucket.upload(path,blob,{
-      contentType:'image/webp',
-      cacheControl:'31536000',
-      upsert:false
+    const result=await client.functions.invoke('admin-save-system-logo',{
+      body:{dataUrl:data}
     });
-    if(upload.error) throw upload.error;
-
-    const publicUrl=bucket.getPublicUrl(path).data.publicUrl;
-    const versionedUrl=publicUrl+'?v='+Date.now();
-    const userResult=await client.auth.getUser();
-    if(userResult.error) throw userResult.error;
-    const adminId=userResult.data.user?.id||null;
-    if(!adminId) throw new Error('Admin session expired. Please log in again.');
-
-    const previous=await client.from('app_settings').select('setting_value').eq('setting_key','system_branding').maybeSingle();
-    if(previous.error) throw previous.error;
-    const oldPath=previous.data?.setting_value?.storage_path||'';
-
-    const save=await client.from('app_settings').upsert({
-      setting_key:'system_branding',
-      setting_value:{logo_url:versionedUrl,storage_path:path},
-      updated_by:adminId,
-      updated_at:new Date().toISOString()
-    },{onConflict:'setting_key'});
-    if(save.error) {
-      await bucket.remove([path]).catch(()=>{});
-      throw save.error;
+    if(result.error) throw result.error;
+    if(!result.data?.ok || !result.data?.verified || !result.data?.logo_url || !result.data?.storage_path){
+      throw new Error(result.data?.error||'Supabase did not verify the permanent logo save.');
     }
 
-    // Verify the database now points to the new logo before touching the old file.
     const verify=await client.from('app_settings')
-      .select('setting_value')
+      .select('setting_value,updated_by,updated_at')
       .eq('setting_key','system_branding')
       .maybeSingle();
-    if(verify.error) {
-      await bucket.remove([path]).catch(()=>{});
-      throw verify.error;
-    }
+    if(verify.error) throw verify.error;
     const savedBranding=verify.data?.setting_value||{};
-    if(savedBranding.storage_path!==path || savedBranding.logo_url!==versionedUrl) {
-      await bucket.remove([path]).catch(()=>{});
-      throw new Error('Supabase accepted the upload but did not persist the new system-logo setting.');
+    if(savedBranding.storage_path!==result.data.storage_path || savedBranding.logo_url!==result.data.logo_url){
+      throw new Error('Permanent save verification failed. The database does not match the uploaded logo.');
     }
 
-    if(oldPath && oldPath!==path) await bucket.remove([oldPath]).catch(e=>console.warn('Old logo cleanup skipped:',e));
-    applySystemLogo(versionedUrl);
-    if(window.epStore) epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo_url:versionedUrl,storage_path:path}));
+    applySystemLogo(result.data.logo_url);
+    if(window.epStore) epStore.setItem('erecpass_db_app_settings',JSON.stringify(savedBranding));
     addLog('Updated System Logo');
-    alert('System logo saved permanently to Supabase. It will remain after refresh and on other devices.');
+    alert('System logo saved permanently to Supabase and verified. It will remain after refresh and on other devices.');
   } catch(error) {
-    console.error('System logo Storage upload failed:',error);
-    alert('Could not save the logo to Supabase Storage: '+(error.message||error));
+    console.error('System logo permanent save failed:',error);
+    alert('Could not save the logo permanently: '+(error.message||error));
   } finally {
     if(event?.target) event.target.value='';
   }
 }
-
 async function resetSystemLogo() {
   if (typeof role !== 'undefined' && role !== 'admin') { alert('Admin access required.'); return; }
   if(!confirm('Reset the system logo to the default logo?')) return;
