@@ -1,4 +1,5 @@
 name: Deploy ERecPass to GitHub Pages
+# Permanent branding deployment verification enabled
 
 on:
   push:
