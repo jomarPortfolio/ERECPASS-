@@ -1685,7 +1685,7 @@ Already have an account?
 
 <div class="quick-grid grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
 
-<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="showPage('hospital-map')">
+<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="patientDashboardNavigate('hospital-map')" type="button">
 
 <i class="fa-solid fa-map-location-dot text-lg text-cyan-400"></i>
 
@@ -1693,7 +1693,7 @@ Already have an account?
 
 </button>
 
-<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="showPage('appointments')">
+<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="patientDashboardNavigate('appointments')" type="button">
 
 <i class="fa-solid fa-calendar-check text-lg text-cyan-400"></i>
 
@@ -1701,7 +1701,7 @@ Already have an account?
 
 </button>
 
-<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="showPage('medical-records')">
+<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="patientDashboardNavigate('medical-records')" type="button">
 
 <i class="fa-solid fa-file-medical text-lg text-cyan-400"></i>
 
@@ -1709,7 +1709,7 @@ Already have an account?
 
 </button>
 
-<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="showPage('medicines')">
+<button class="p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1" onclick="patientDashboardNavigate('medicines')" type="button">
 
 <i class="fa-solid fa-pills text-lg text-cyan-400"></i>
 
@@ -2030,49 +2030,49 @@ Already have an account?
 
 <nav class="bottom-nav fixed bottom-0 left-0 right-0 h-16 border-t flex justify-around items-center px-1 z-30">
 
-<button id="nav-dashboard" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('dashboard')">
+<button id="nav-dashboard" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('dashboard')" type="button">
 
 <i class="fa-solid fa-chart-line text-sm mb-0.5"></i><span>Dashboard</span>
 
 </button>
 
-<button id="nav-hospital-map" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('hospital-map')">
+<button id="nav-hospital-map" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('hospital-map')" type="button">
 
 <i class="fa-solid fa-map text-sm mb-0.5"></i><span>Map</span>
 
 </button>
 
-<button id="nav-appointments" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('appointments')">
+<button id="nav-appointments" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('appointments')" type="button">
 
 <i class="fa-solid fa-calendar-check text-sm mb-0.5"></i><span>Appts</span>
 
 </button>
 
-<button id="nav-medical-records" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('medical-records')">
+<button id="nav-medical-records" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('medical-records')" type="button">
 
 <i class="fa-solid fa-file-medical text-sm mb-0.5"></i><span>Records</span>
 
 </button>
 
-<button id="nav-medicines" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('medicines')">
+<button id="nav-medicines" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('medicines')" type="button">
 
 <i class="fa-solid fa-pills text-sm mb-0.5"></i><span>Meds</span>
 
 </button>
 
-<button id="nav-doctors" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('doctors')">
+<button id="nav-doctors" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('doctors')" type="button">
 
 <i class="fa-solid fa-user-doctor text-sm mb-0.5"></i><span>Staff</span>
 
 </button>
 
-<button id="nav-qr" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('qr')">
+<button id="nav-qr" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('qr')" type="button">
 
 <i class="fa-solid fa-qrcode text-sm mb-0.5"></i><span>My QR</span>
 
 </button>
 
-<button id="nav-help" class="flex flex-col items-center text-[9px] font-tech" onclick="showPage('help')">
+<button id="nav-help" class="flex flex-col items-center text-[9px] font-tech" onclick="patientDashboardNavigate('help')" type="button">
 
 <i class="fa-solid fa-comments text-sm mb-0.5"></i><span>Chat</span>
 
@@ -3338,17 +3338,38 @@ function showPage(pageId) {
 
 document.querySelectorAll('#patientApp .page').forEach(page => page.classList.remove('active'));
 
-document.querySelectorAll('.bottom-nav button').forEach(btn => btn.classList.remove('active'));
+document.querySelectorAll('#patientApp .bottom-nav button').forEach(btn => btn.classList.remove('active'));
 
 const targetPage = document.getElementById(pageId);
 
-if (targetPage) targetPage.classList.add('active');
+if (!targetPage) {
+  console.warn('[ERecPass] Patient page not found:', pageId);
+  return false;
+}
+
+targetPage.classList.add('active');
 
 const navBtn = document.getElementById('nav-' + pageId);
 
 if (navBtn) navBtn.classList.add('active');
 
+try {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+} catch (_) {
+  window.scrollTo(0, 0);
 }
+
+return true;
+
+}
+
+/* Patient dashboard navigation buttons — keeps the existing UI/design and makes every dashboard menu item a reliable touch button. */
+window.patientDashboardNavigate = function(pageId) {
+  if (!pageId) return false;
+  const patientApp = document.getElementById('patientApp');
+  if (!patientApp || patientApp.classList.contains('hidden')) return false;
+  return showPage(pageId);
+};
 
 function renderPatientAnnouncements() {
 
