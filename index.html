@@ -3351,24 +3351,50 @@ const list = JSON.parse(epStore.getItem(DB_KEYS.ANNOUNCEMENTS)) || [];
 
 const container = document.getElementById('patientAnnouncementsArea');
 
+if (!container) return;
+
 container.innerHTML = "";
+
+if (list.length === 0) {
+  container.innerHTML = `
+    <div class="glass-card p-3 rounded-xl border-cyan-500/30 text-xs flex gap-3 items-center">
+      <i class="fa-solid fa-bullhorn text-cyan-400 text-base"></i>
+      <div>
+        <strong class="text-white block font-tech">Announcements</strong>
+        <p class="text-slate-400 text-[11px]">No announcements yet.</p>
+      </div>
+    </div>
+  `;
+  return;
+}
 
 list.forEach(a => {
 
+const photoHtml = a.photo
+  ? `
+    <div class="mt-2 w-full overflow-hidden rounded-xl border border-cyan-500/20 bg-slate-950/50">
+      <img
+        src="${a.photo}"
+        alt="Announcement photo"
+        class="w-full max-h-80 object-contain rounded-xl"
+        loading="lazy"
+        onerror="this.parentElement.style.display='none';"
+      >
+    </div>
+  `
+  : "";
+
 container.innerHTML += `
 
-<div class="glass-card p-3 rounded-xl border-cyan-500/30 text-xs flex gap-3 items-center">
-
-<i class="fa-solid fa-bullhorn text-cyan-400 text-base"></i>
-
-<div>
-
-<strong class="text-white block font-tech">Announcement (${a.date})</strong>
-
-<p class="text-slate-300 text-[11px]">${a.text}</p>
-
-</div>
-
+<div class="glass-card p-3 rounded-xl border-cyan-500/30 text-xs">
+  <div class="flex gap-3 items-start">
+    <i class="fa-solid fa-bullhorn text-cyan-400 text-base mt-0.5"></i>
+    <div class="min-w-0 flex-1">
+      <strong class="text-white block font-tech">Announcement (${a.date || ''})</strong>
+      ${a.text ? `<p class="text-slate-300 text-[11px] mt-1">${a.text}</p>` : ""}
+      ${photoHtml}
+    </div>
+  </div>
 </div>
 
 `;
@@ -3376,6 +3402,7 @@ container.innerHTML += `
 });
 
 }
+
 
 function renderPatientAppointments() {
 
