@@ -302,4 +302,101 @@
       else alert(msg);
     }
   });
+
+  // FINAL LOGIN SAFETY PATCH
+  (function(){
+    async function waitForSupabaseClient(timeoutMs){
+      const started=Date.now();
+      while(!window.erecpassSupabase && Date.now()-started<timeoutMs){
+        await new Promise(r=>setTimeout(r,100));
+      }
+      if(!window.erecpassSupabase || !window.erecpassSupabase.auth){
+        throw new Error('Account service is not ready. Please refresh the page and try again.');
+      }
+      return window.erecpassSupabase;
+    }
+    async function finishLogin(client, authUser, expectedRole, roleLabel){
+      const pr=await client.from('profiles')
+        .select('id,full_name,role,active')
+        .eq('id',authUser.id)
+        .maybeSingle();
+      if(pr.error) throw pr.error;
+      const profile=pr.data;
+      if(!profile) {
+        await client.auth.signOut();
+        throw new Error('Account profile was not found. Please contact the system administrator.');
+      }
+      if(profile.active===false){
+        await client.auth.signOut();
+        throw new Error('This '+roleLabel+' account is deactivated. Login is disabled.');
+      }
+      if(String(profile.role||'').toLowerCase()!==expectedRole){
+        await client.auth.signOut();
+        throw new Error('This account is not enabled for '+roleLabel+' Login.');
+      }
+      await hydrate();
+      const sessionData=currentSession?.data || {
+        id:authUser.id,
+        user_id:authUser.id,
+        email:authUser.email || '',
+        name:profile.full_name || authUser.email || roleLabel
+      };
+      currentSession={role:expectedRole,data:sessionData};
+      put(K.X,currentSession);
+      hideAuthPages();
+      launchPortalByRole(expectedRole);
+    }
+    async function runLogin(formId,buttonSelector,work){
+      const form=document.getElementById(formId);
+      const button=form?.querySelector(buttonSelector||'button[type="submit"]');
+      if(button) button.disabled=true;
+      try{ await work(); }
+      catch(e){
+        console.error('[ERecPass login]',e);
+        alert(e?.message||'Login failed. Please try again.');
+      }
+      finally{ if(button) button.disabled=false; }
+    }
+    window.handleLogin=async function(e){
+      e?.preventDefault();
+      await runLogin('loginForm','button[type="submit"]',async()=>{
+        const email=document.getElementById('loginEmail')?.value.trim().toLowerCase();
+        const password=document.getElementById('loginPassword')?.value||'';
+        if(!email||!password){alert('Please enter your email and password.');return;}
+        const client=await waitForSupabaseClient(7000);
+        const r=await client.auth.signInWithPassword({email,password});
+        if(r.error) throw r.error;
+        if(!r.data?.user) throw new Error('Login could not be completed.');
+        await finishLogin(client,r.data.user,'patient','Patient');
+      });
+    };
+    window.handleStaffLogin=async function(e){
+      e?.preventDefault();
+      await runLogin('staffLoginForm','button[type="submit"]',async()=>{
+        const email=document.getElementById('staffLoginName')?.value.trim().toLowerCase();
+        const password=document.getElementById('staffLoginPassword')?.value||'';
+        if(!email||!password){alert('Please enter Staff email and password.');return;}
+        if(!email.includes('@')){alert('Enter a valid Staff email address.');return;}
+        const client=await waitForSupabaseClient(7000);
+        const r=await client.auth.signInWithPassword({email,password});
+        if(r.error) throw r.error;
+        if(!r.data?.user) throw new Error('Staff login could not be completed.');
+        await finishLogin(client,r.data.user,'staff','Staff');
+      });
+    };
+    window.handleAdminLogin=async function(e){
+      e?.preventDefault();
+      await runLogin('adminLoginForm','button[type="submit"]',async()=>{
+        const email=document.getElementById('adminLoginUser')?.value.trim().toLowerCase();
+        const password=document.getElementById('adminLoginPassword')?.value||'';
+        if(!email||!password){alert('Please enter Admin email and password.');return;}
+        const client=await waitForSupabaseClient(7000);
+        const r=await client.auth.signInWithPassword({email,password});
+        if(r.error) throw r.error;
+        if(!r.data?.user) throw new Error('Admin login could not be completed.');
+        await finishLogin(client,r.data.user,'admin','Admin');
+      });
+    };
+  })();
+
 })();
