@@ -7183,7 +7183,7 @@ window.renderErecpassAdminAccounts=function(){
       '<div class="erecpass-added-actions">'+
       '<button onclick="viewErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">View</button>'+
       '<button onclick="editErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">Edit</button>'+
-      '<button onclick="openErecpassChangePassword(\\''+epEscape(epAdminType)+'\\',\\''+epEscape(id)+'\\')">Change Password</button>'+
+      '<button onclick="openErecpassChangePassword(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">Change Password</button>'+
       '<button onclick="toggleErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">'+(active?'Deactivate':'Activate')+'</button>'+
       '<button class="danger" onclick="deleteErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">Delete</button>'+
       '</div></div>';
@@ -7196,7 +7196,7 @@ window.openErecpassChangePassword=function(type,id){
     '<p style="color:#8fb9b5;font-size:11px">Admin-only password change for '+epEscape(a.fullName||a.name||a.email||'this account')+'.</p>'+
     '<label>New Password</label><input id="epAdminNewPassword" type="password" autocomplete="new-password" placeholder="At least 8 characters">'+
     '<label>Confirm Password</label><input id="epAdminNewPassword2" type="password" autocomplete="new-password" placeholder="Re-enter password">'+
-    '<div class="erecpass-added-actions"><button onclick="saveErecpassChangedPassword(\\''+epEscape(type)+'\\',\\''+epEscape(id)+'\\')">Save New Password</button></div>');
+    '<div class="erecpass-added-actions"><button onclick="saveErecpassChangedPassword(\''+epEscape(type)+'\',\''+epEscape(id)+'\')">Save New Password</button></div>');
 };
 window.saveErecpassChangedPassword=async function(type,id){
   const arr=type==='patient'?epPatients():epStaff();
