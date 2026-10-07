@@ -243,7 +243,7 @@
     const email=document.getElementById('epResetEmail')?.value.trim().toLowerCase();
     if(!email){alert('Enter your registered email.');return}
     try{
-      const redirectTo=window.location.origin+window.location.pathname;
+      const redirectTo='https://paquibojm5-stack.github.io/ERECPASS-/';
       const r=await sb().auth.resetPasswordForEmail(email,{redirectTo});
       if(r.error)throw r.error;
       const step=document.getElementById('epResetStep');
@@ -262,8 +262,10 @@
       await sb().auth.signOut();
     }catch(e){alert('Open the secure reset link from your email first. '+(e.message||''))}
   };
+  // Password recovery: always keep the user on the real GitHub Pages root.
   sb()?.auth.onAuthStateChange((event)=>{
     if(event==='PASSWORD_RECOVERY'){
+      try{ window.history.replaceState({},document.title,window.location.pathname+'#password-recovery'); }catch(e){}
       window.openErecpassForgotPassword();
       const step=document.getElementById('epResetStep');
       if(step)step.innerHTML='<label>New Password</label><input id="epResetNewPass" type="password" autocomplete="new-password">'+
