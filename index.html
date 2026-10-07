@@ -3924,63 +3924,108 @@ alert('QR camera scanner is still loading. Please wait a moment and try again.')
 return;
 }
 if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-alert('Camera access is unavailable here. Please open ERecPass using its HTTPS app link.');
+alert('This browser does not provide secure camera access. Please open the HTTPS ERecPass link in Chrome.');
 return;
 }
-if (staffHtml5QrCode) {
-try { staffHtml5QrCode.stop().catch(() => {}); } catch (e) {}
-try { staffHtml5QrCode.clear(); } catch (e) {}
-staffHtml5QrCode = null;
-}
 
-staffHtml5QrCode = new Html5Qrcode('staffQrReader');
-
-const onScanSuccess = (decodedText) => {
-handleScannedQrText(decodedText);
-stopStaffQrScanner();
-};
-const onScanError = () => {};
-
-const startOptions = {
-fps: 10,
-qrbox: 250,
-aspectRatio: 1.333334
+const cleanupScanner = async () => {
+  if (!staffHtml5QrCode) return;
+  try { await staffHtml5QrCode.stop(); } catch (e) {}
+  try { staffHtml5QrCode.clear(); } catch (e) {}
+  staffHtml5QrCode = null;
 };
 
-// Start directly from the user button click. This lets the browser/Android
-// camera permission flow belong to the actual scanner instead of a temporary
-// getUserMedia stream.
-staffHtml5QrCode.start(
-{ facingMode: { exact: 'environment' } },
-startOptions,
-onScanSuccess,
-onScanError
-).catch(firstError => {
-console.warn('Rear camera start failed; trying any available camera.', firstError);
+cleanupScanner().then(async () => {
+  // First verify that this page can actually open the phone camera.
+  // This avoids relying on camera labels/constraints before permission
+  // has been established by Android/Chrome.
+  let testStream = null;
+  try {
+    testStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false
+    });
+  } catch (permissionError) {
+    console.error('ERecPass camera permission/device error:', permissionError);
+    let message = 'Camera could not be opened.';
+    if (permissionError && permissionError.name === 'NotAllowedError') {
+      message = 'Camera access is blocked for this site/browser. In Chrome, open Site settings for paquibojm5-stack.github.io and set Camera to Allow.';
+    } else if (permissionError && permissionError.name === 'NotFoundError') {
+      message = 'No camera was detected on this device.';
+    } else if (permissionError && permissionError.name === 'NotReadableError') {
+      message = 'The camera is busy or unavailable. Close other apps using the camera and try again.';
+    } else if (permissionError && permissionError.name === 'SecurityError') {
+      message = 'The browser blocked camera access. Open the HTTPS ERecPass link directly in Chrome.';
+    } else if (permissionError && permissionError.name === 'OverconstrainedError') {
+      message = 'The selected camera is not available on this device.';
+    } else if (permissionError && permissionError.message) {
+      message = 'Camera error: ' + permissionError.message;
+    }
+    alert(message);
+    return;
+  } finally {
+    if (testStream) testStream.getTracks().forEach(track => {
+      try { track.stop(); } catch (e) {}
+    });
+  }
 
-// Fallback for devices/browsers that do not accept the environment constraint.
-return staffHtml5QrCode.start(
-{ facingMode: 'environment' },
-startOptions,
-onScanSuccess,
-onScanError
-);
-}).catch(err => {
-console.error('ERecPass Staff QR camera error:', err);
-let message = 'Camera could not be opened. Please check that Camera permission is allowed for the browser/app.';
-if (err && err.name === 'NotAllowedError') {
-message = 'Camera permission is blocked. Please allow Camera permission for the browser/app, then tap Start Camera again.';
-} else if (err && err.name === 'NotFoundError') {
-message = 'No camera was found on this device.';
-} else if (err && err.name === 'NotReadableError') {
-message = 'The camera is busy. Close other apps using the camera, then try again.';
-}
-alert(message);
-try { if (staffHtml5QrCode) staffHtml5QrCode.clear(); } catch (e) {}
-staffHtml5QrCode = null;
+  staffHtml5QrCode = new Html5Qrcode('staffQrReader');
+
+  const onScanSuccess = (decodedText) => {
+    handleScannedQrText(decodedText);
+    stopStaffQrScanner();
+  };
+  const onScanError = () => {};
+
+  const options = {
+    fps: 10,
+    qrbox: 250,
+    aspectRatio: 1.333334
+  };
+
+  // Get real camera IDs after permission has been granted.
+  let cameras = [];
+  try {
+    cameras = await Html5Qrcode.getCameras();
+  } catch (cameraListError) {
+    console.warn('Camera list unavailable; using environment constraint.', cameraListError);
+  }
+
+  try {
+    if (cameras && cameras.length) {
+      const rear = cameras.find(c =>
+        /back|rear|environment|0[.]5|wide|main/i.test(c.label || '')
+      );
+      const cameraId = (rear || cameras[0]).id;
+      await staffHtml5QrCode.start(cameraId, options, onScanSuccess, onScanError);
+    } else {
+      await staffHtml5QrCode.start(
+        { facingMode: 'environment' },
+        options,
+        onScanSuccess,
+        onScanError
+      );
+    }
+  } catch (err) {
+    console.error('ERecPass Staff QR start error:', err);
+    let message = 'Camera could not be opened.';
+    if (err && err.name === 'NotAllowedError') {
+      message = 'Camera access was blocked by the browser. Please set Camera to Allow for paquibojm5-stack.github.io.';
+    } else if (err && err.name === 'NotReadableError') {
+      message = 'Camera is busy. Close other camera-using apps and try again.';
+    } else if (err && err.name === 'NotFoundError') {
+      message = 'No camera was found.';
+    } else if (err && err.name === 'OverconstrainedError') {
+      message = 'The requested rear camera is unavailable. Please try again.';
+    } else if (err && err.message) {
+      message = 'Camera error: ' + err.message;
+    }
+    alert(message);
+    try { if (staffHtml5QrCode) staffHtml5QrCode.clear(); } catch (e) {}
+    staffHtml5QrCode = null;
+  }
 });
 }
-
 function stopStaffQrScanner() {
 
 if (staffHtml5QrCode) {
