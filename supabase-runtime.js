@@ -17,7 +17,7 @@
       if(!brandingRes.error){
         const branding=brandingRes.data?.setting_value||{};
         putSettings(branding);
-        if(window.applySystemLogo) window.applySystemLogo(branding.logo||'');
+        if(window.applySystemLogo) window.applySystemLogo(branding.logo_url||branding.logo||'');
       } else {
         err('read public branding',brandingRes.error);
       }
@@ -36,7 +36,7 @@
       if(settingsRes.error) err('read app_settings',settingsRes.error);
       const branding=settingsRes.data?.setting_value||{};
       putSettings(branding);
-      if(window.applySystemLogo) window.applySystemLogo(branding.logo||'');
+      if(window.applySystemLogo) window.applySystemLogo(branding.logo_url||branding.logo||'');
       const ps=(rs[0].error?[]:rs[0].data||[]).map(patient),ss=(rs[1].error?[]:rs[1].data||[]).map(staff);
       put(K.P,ps);put(K.S,ss);put(K.B,(rs[2].error?[]:rs[2].data||[]).map(appt));put(K.N,(rs[3].error?[]:rs[3].data||[]).map(ann));put(K.C,(rs[4].error?[]:rs[4].data||[]).map(msg));put(K.L,(rs[5].error?[]:rs[5].data||[]).map(x=>({id:x.id,timestamp:x.created_at,text:x.event_text})));put(K.A,[]);
       const data=role==='patient'?(ps.find(p=>p.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,fullName:pr.data.full_name}):role==='staff'?(ss.find(s=>s.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name}):{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name,fullName:pr.data.full_name};
