@@ -1,7 +1,7 @@
 
 (function(){
   const cache=new Map(),K={P:'erecpass_db_patients',S:'erecpass_db_staff',A:'erecpass_db_admin_accounts',N:'erecpass_db_announcements',B:'erecpass_db_appointments',C:'erecpass_db_chats',L:'erecpass_db_logs',X:'erecpass_db_session',G:'erecpass_db_agreement',E:'erecpass_db_emergencynums',T:'erecpass_db_app_settings'};
-  [K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>cache.set(k,'[]'));cache.set(K.T,'{}');
+  [K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>cache.set(k,'[]'));cache.set(K.T,'{}');cache.set(K.G,JSON.stringify({text:'Welcome to ERecPass. Please keep your account secure and use this portal only for authorized hospital services.',photo:''}));cache.set(K.E,JSON.stringify({barangay:'0917-123-4567',national:'911'}));
   let role='anon',user=null,loading=false,channel=null,queue=Promise.resolve();
   const sb=()=>window.erecpassSupabase,putSettings=v=>cache.set(K.T,JSON.stringify(v||{})),parse=(s,d=[])=>{try{return JSON.parse(s||'null')??d}catch{return d}},put=(k,v)=>cache.set(k,typeof v==='string'?v:JSON.stringify(v)),err=(s,e)=>console.error('[ERecPass cloud] '+s,e);
   const patient=p=>({id:p.id,user_id:p.user_id,fullName:p.full_name,email:p.email,sim:p.sim,photo:p.photo,ageCategory:p.age_category,guardianNum:p.guardian_num,status:p.status,labResults:p.lab_results||[],prescriptions:p.prescriptions||[],doctorNotes:p.doctor_notes||'',online:!!p.online,active:p.active!==false});
@@ -13,10 +13,14 @@
     if(!sb())throw Error('Supabase client did not initialize');
     loading=true;
     try{
-      const brandingRes=await sb().from('app_settings').select('setting_key,setting_value').eq('setting_key','system_branding').maybeSingle();
-      if(!brandingRes.error){
-        const branding=brandingRes.data?.setting_value||{};
+      const publicSettingsRes=await sb().from('app_settings').select('setting_key,setting_value').in('setting_key',['system_branding','system_agreement','emergency_numbers']);
+      if(!publicSettingsRes.error){
+        const rows=publicSettingsRes.data||[];
+        const map=Object.fromEntries(rows.map(x=>[x.setting_key,x.setting_value||{}]));
+        const branding=map.system_branding||{};
         putSettings(branding);
+        put(K.G,map.system_agreement||{text:'Welcome to ERecPass. Please keep your account secure and use this portal only for authorized hospital services.',photo:''});
+        put(K.E,map.emergency_numbers||{barangay:'0917-123-4567',national:'911'});
         if(window.applySystemLogo) window.applySystemLogo(branding.logo_url||branding.logo||'');
       } else {
         err('read public branding',brandingRes.error);
@@ -32,10 +36,14 @@
       const tables=['patients','staff','appointments','announcements','help_center_messages','activity_logs'];
       const rs=await Promise.all(tables.map(t=>sb().from(t).select('*')));
       rs.forEach((r,i)=>{if(r.error)err('read '+tables[i],r.error)});
-      const settingsRes=await sb().from('app_settings').select('setting_key,setting_value').eq('setting_key','system_branding').maybeSingle();
+      const settingsRes=await sb().from('app_settings').select('setting_key,setting_value').in('setting_key',['system_branding','system_agreement','emergency_numbers']);
       if(settingsRes.error) err('read app_settings',settingsRes.error);
-      const branding=settingsRes.data?.setting_value||{};
+      const settingsRows=settingsRes.data||[];
+      const settingsMap=Object.fromEntries(settingsRows.map(x=>[x.setting_key,x.setting_value||{}]));
+      const branding=settingsMap.system_branding||{};
       putSettings(branding);
+      put(K.G,settingsMap.system_agreement||{text:'Welcome to ERecPass. Please keep your account secure and use this portal only for authorized hospital services.',photo:''});
+      put(K.E,settingsMap.emergency_numbers||{barangay:'0917-123-4567',national:'911'});
       if(window.applySystemLogo) window.applySystemLogo(branding.logo_url||branding.logo||'');
       const ps=(rs[0].error?[]:rs[0].data||[]).map(patient),ss=(rs[1].error?[]:rs[1].data||[]).map(staff);
       put(K.P,ps);put(K.S,ss);put(K.B,(rs[2].error?[]:rs[2].data||[]).map(appt));put(K.N,(rs[3].error?[]:rs[3].data||[]).map(ann));put(K.C,(rs[4].error?[]:rs[4].data||[]).map(msg));put(K.L,(rs[5].error?[]:rs[5].data||[]).map(x=>({id:x.id,timestamp:x.created_at,text:x.event_text})));put(K.A,[]);
@@ -83,6 +91,14 @@
       }else if(k===K.T&&role==='admin'){
         const v=parse(newRaw,{});
         const r=await client.from('app_settings').upsert({setting_key:'system_branding',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
+        if(r.error)throw r.error;
+      }else if(k===K.G&&role==='admin'){
+        const v=parse(newRaw,{});
+        const r=await client.from('app_settings').upsert({setting_key:'system_agreement',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
+        if(r.error)throw r.error;
+      }else if(k===K.E&&role==='admin'){
+        const v=parse(newRaw,{});
+        const r=await client.from('app_settings').upsert({setting_key:'emergency_numbers',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
         if(r.error)throw r.error;
       }else if(k===K.L){
         const seen=new Set(old.map(x=>String(x.timestamp)+'|'+String(x.text)));
