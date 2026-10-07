@@ -15,22 +15,22 @@
     try{
       const sr=await sb().auth.getSession();if(sr.error)throw sr.error;
       const u=sr.data.session?.user;
-      if(!u){role='anon';user=null;[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));put(K.X,null);return}
+      if(!u){role='anon';user=null;[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));put(K.G,null);put(K.E,null);put(K.X,null);return}
       user=u;
       const pr=await sb().from('profiles').select('id,full_name,role,active').eq('id',u.id).maybeSingle();
       if(pr.error)throw pr.error;
       if(!pr.data||pr.data.active===false){await sb().auth.signOut();role='anon';user=null;put(K.X,null);throw Error('Account is inactive or has no profile')}
       role=pr.data.role||'patient';
-      const tables=['patients','staff','appointments','announcements','help_center_messages','activity_logs'];
+      const tables=['patients','staff','appointments','announcements','help_center_messages','activity_logs','app_settings'];
       const rs=await Promise.all(tables.map(t=>sb().from(t).select('*')));
       rs.forEach((r,i)=>{if(r.error)err('read '+tables[i],r.error)});
       const ps=(rs[0].error?[]:rs[0].data||[]).map(patient),ss=(rs[1].error?[]:rs[1].data||[]).map(staff);
-      put(K.P,ps);put(K.S,ss);put(K.B,(rs[2].error?[]:rs[2].data||[]).map(appt));put(K.N,(rs[3].error?[]:rs[3].data||[]).map(ann));put(K.C,(rs[4].error?[]:rs[4].data||[]).map(msg));put(K.L,(rs[5].error?[]:rs[5].data||[]).map(x=>({id:x.id,timestamp:x.created_at,text:x.event_text})));put(K.A,[]);
+      put(K.P,ps);put(K.S,ss);put(K.B,(rs[2].error?[]:rs[2].data||[]).map(appt));put(K.N,(rs[3].error?[]:rs[3].data||[]).map(ann));put(K.C,(rs[4].error?[]:rs[4].data||[]).map(msg));put(K.L,(rs[5].error?[]:rs[5].data||[]).map(x=>({id:x.id,timestamp:x.created_at,text:x.event_text})));const settings=rs[6].error?[]:rs[6].data||[];const ag=settings.find(x=>x.setting_key===K.G),en=settings.find(x=>x.setting_key===K.E);if(ag)put(K.G,JSON.stringify(ag.setting_value));else put(K.G,null);if(en)put(K.E,JSON.stringify(en.setting_value));else put(K.E,null);put(K.A,[]);
       const data=role==='patient'?(ps.find(p=>p.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,fullName:pr.data.full_name}):role==='staff'?(ss.find(s=>s.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name}):{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name,fullName:pr.data.full_name};
       if(typeof currentSession!=='undefined'){currentSession={role,data};put(K.X,currentSession)}
       if(channel)await sb().removeChannel(channel);
       channel=sb().channel('erecpass-sync-'+u.id);
-      ['patients','staff','appointments','announcements','help_center_messages','activity_logs'].forEach(t=>channel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>{if(!loading)hydrate().catch(e=>err('realtime refresh',e))}));
+      ['patients','staff','appointments','announcements','help_center_messages','activity_logs','app_settings'].forEach(t=>channel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>{if(!loading)hydrate().catch(e=>err('realtime refresh',e))}));
       channel.subscribe();
     }finally{loading=false}
   }
@@ -67,13 +67,15 @@
         if(del.length){const r=await client.from('announcements').delete().in('legacy_id',del);if(r.error)throw r.error}
       }else if(k===K.C){
         for(const x of a){if(!x.message&&!x.text)continue;const r=await client.from('help_center_messages').upsert({legacy_id:String(x.id||crypto.randomUUID()),user_id:x.user_id||user.id,full_name:x.fullName||x.full_name||currentSession?.data?.fullName||currentSession?.data?.name||'',email:x.email||user.email||'',message:x.message||x.text||'',admin_reply:x.reply||x.admin_reply||'',status:x.status||'New'},{onConflict:'legacy_id'});if(r.error)throw r.error}
+      }else if(k===K.G||k===K.E){
+        const value=parse(newRaw,null);const r=await client.from('app_settings').upsert({setting_key:k,setting_value:value,updated_by:user.id},{onConflict:'setting_key'});if(r.error)throw r.error;
       }else if(k===K.L){
         const seen=new Set(old.map(x=>String(x.timestamp)+'|'+String(x.text)));
         for(const x of a.filter(x=>!seen.has(String(x.timestamp)+'|'+String(x.text)))){const r=await client.from('activity_logs').insert({actor_id:user.id,event_text:String(x.text||'Activity')});if(r.error)throw r.error}
       }
     }catch(e){err('write '+k,e);window.dispatchEvent(new CustomEvent('erecpass-cloud-error',{detail:{key:k,message:e.message||String(e)}}))}
   }
-  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(!loading&&![K.X,K.A,K.G,K.E].includes(k)){queue=queue.then(()=>persist(k,old,n)).catch(e=>err('write queue',e))}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&old!==undefined&&!loading)queue=queue.then(()=>persist(k,old,'[]')).catch(e=>err('remove',e))},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
+  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(!loading&&![K.X,K.A].includes(k)){queue=queue.then(()=>persist(k,old,n)).catch(e=>err('write queue',e))}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&old!==undefined&&!loading)queue=queue.then(()=>persist(k,old,'[]')).catch(e=>err('remove',e))},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
   window.erecpassCloudHydrate=hydrate;
   const profileFor=async u=>{const r=await sb().from('profiles').select('id,full_name,role,active').eq('id',u.id).single();if(r.error)throw r.error;if(r.data.active===false)throw Error('This account is deactivated');return r.data};
   // The old SMS button only generated a code in this browser; it did not send a real SMS.
