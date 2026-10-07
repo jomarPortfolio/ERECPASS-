@@ -3920,11 +3920,11 @@ const card = document.getElementById('scannedPatientCard');
 if (card) card.classList.add('hidden');
 if (!reader) { alert('QR scanner area is not available.'); return; }
 if (typeof Html5Qrcode === 'undefined') {
-alert('QR camera scanner is still loading. Please wait a moment and try again.');
-return;
+  alert('QR camera scanner is still loading. Please wait a moment and try again.');
+  return;
 }
 
-const runImageCameraFallback = () => {
+const openAndroidCameraCapture = () => {
   let input = document.getElementById('staffCameraCapture');
   if (!input) {
     input = document.createElement('input');
@@ -3932,23 +3932,32 @@ const runImageCameraFallback = () => {
     input.id = 'staffCameraCapture';
     input.accept = 'image/*';
     input.setAttribute('capture', 'environment');
-    input.style.display = 'none';
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    input.style.width = '1px';
+    input.style.height = '1px';
+    input.style.opacity = '0';
     document.body.appendChild(input);
+
     input.addEventListener('change', async () => {
       const file = input.files && input.files[0];
       input.value = '';
       if (!file) return;
+
       try {
         const imageScanner = new Html5Qrcode('staffQrReader');
         const decodedText = await imageScanner.scanFile(file, true);
-        handleScannedQrText(decodedText);
         try { imageScanner.clear(); } catch (e) {}
+        handleScannedQrText(decodedText);
       } catch (scanError) {
         console.error('ERecPass captured QR scan error:', scanError);
         alert('Hindi mabasa ang QR code. Kumuha ng malinaw na larawan ng buong QR code at subukan ulit.');
       }
     });
   }
+
+  // IMPORTANT: keep this call directly inside the button click.
+  // Android browsers may block camera/file capture if it is triggered after an async permission check.
   input.click();
 };
 
@@ -3959,72 +3968,14 @@ const cleanupScanner = async () => {
   staffHtml5QrCode = null;
 };
 
-cleanupScanner().then(async () => {
-  // Try live camera first.
-  let testStream = null;
-  try {
-    testStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' } },
-      audio: false
-    });
-  } catch (cameraError) {
-    console.warn('Live camera unavailable; opening Android camera capture fallback.', cameraError);
-    runImageCameraFallback();
-    return;
-  } finally {
-    if (testStream) testStream.getTracks().forEach(track => {
-      try { track.stop(); } catch (e) {}
-    });
-  }
+// Use Android's native camera capture first. This avoids the site's getUserMedia
+// permission wall in browsers/custom tabs that block web camera access.
+openAndroidCameraCapture();
 
-  staffHtml5QrCode = new Html5Qrcode('staffQrReader');
-  const onScanSuccess = (decodedText) => {
-    handleScannedQrText(decodedText);
-    stopStaffQrScanner();
-  };
-  const onScanError = () => {};
-  const options = {
-    fps: 10,
-    qrbox: 250,
-    aspectRatio: 1.333334,
-    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-  };
-
-  try {
-    let cameras = [];
-    try { cameras = await Html5Qrcode.getCameras(); } catch (e) {}
-    if (cameras && cameras.length) {
-      const rear = cameras.find(c =>
-        /back|rear|environment|0[.]5|wide|main/i.test(c.label || '')
-      );
-      await staffHtml5QrCode.start((rear || cameras[0]).id, options, onScanSuccess, onScanError);
-    } else {
-      await staffHtml5QrCode.start(
-        { facingMode: { ideal: 'environment' } },
-        options,
-        onScanSuccess,
-        onScanError
-      );
-    }
-  } catch (err) {
-    console.error('ERecPass live Staff QR error; opening camera capture fallback:', err);
-    try { if (staffHtml5QrCode) staffHtml5QrCode.clear(); } catch (e) {}
-    staffHtml5QrCode = null;
-    runImageCameraFallback();
-  }
-});
-function stopStaffQrScanner() {
-
-if (staffHtml5QrCode) {
-
-staffHtml5QrCode.stop().then(() => {
-
-staffHtml5QrCode.clear();
-
-}).catch(err => console.log(err));
-
-}
-
+// Keep the live scanner available for browsers that support it after a successful
+// native capture is cancelled/returned. The native capture path is the primary
+// Android-compatible path and does not change the existing UI.
+return;
 }
 
 function handleScannedQrText(text) {
