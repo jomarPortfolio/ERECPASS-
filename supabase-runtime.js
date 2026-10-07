@@ -23,7 +23,7 @@
         put(K.E,map.emergency_numbers||{barangay:'0917-123-4567',national:'911'});
         if(window.applySystemLogo) window.applySystemLogo(branding.logo_url||branding.logo||'');
       } else {
-        err('read public branding',publicSettingsRes.error);
+        err('read public branding',brandingRes.error);
       }
       const sr=await sb().auth.getSession();if(sr.error)throw sr.error;
       const u=sr.data.session?.user;
@@ -108,16 +108,6 @@
         const keep=new Set(a.map(x=>String(x.id))),del=old.filter(x=>!keep.has(String(x.id))).map(x=>String(x.id));
         if(del.length){const r=await client.from('staff').delete().in('id',del);if(r.error)throw r.error}
       }else if(k===K.B){
-        if(role==='patient'){
-          const before=new Map(old.map(x=>[String(x.id),x]));
-          for(const x of a){
-            const prev=before.get(String(x.id));
-            if(!prev || prev.status===x.status) continue;
-            const r=await client.from('appointments').update({status:x.status}).eq('legacy_id',String(x.id));
-            if(r.error)throw r.error;
-          }
-          return;
-        }
         const rows=a.map(x=>({legacy_id:String(x.id),patient_id:String(x.patientId||x.patient_id||''),patient_name:x.patientName||x.patient_name||'',doctor:x.doctor||'',appointment_date:x.date||x.appointment_date||null,reason:x.reason||'',status:x.status||'Pending Approval',created_by:user.id}));
         if(rows.length){
           const r=await client.from('appointments').upsert(rows,{onConflict:'legacy_id'});if(r.error)throw r.error;
@@ -228,7 +218,29 @@
       if(submit){submit.disabled=false;submit.textContent='CREATE ACCOUNT'}
     }
   };
-  // Login handlers are defined once in the FINAL LOGIN SAFETY PATCH below.\n  window.logout=async function(){try{if(sb())await sb().auth.signOut()}catch(e){err('sign out',e)}if(channel&&sb())await sb().removeChannel(channel);channel=null;user=null;role='anon';currentSession=null;put(K.X,null);putSettings({});[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));['patientApp','staffApp','adminApp'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));showLogin()};
+  window.handleLogin=async function(e){e?.preventDefault();const email=document.getElementById('loginEmail')?.value.trim().toLowerCase(),password=document.getElementById('loginPassword')?.value||'';try{const r=await sb().auth.signInWithPassword({email,password});if(r.error)throw r.error;const p=await profileFor(r.data.user);if(p.role!=='patient'){await sb().auth.signOut();throw Error('This account is not a patient account')}await hydrate();if(currentSession?.data?.active===false){await sb().auth.signOut();throw Error('This patient account is deactivated')}hideAuthPages();launchPortalByRole('patient')}catch(x){alert(x.message||'Login failed')}};
+  window.handleStaffLogin=async function(e){e?.preventDefault();const email=document.getElementById('staffLoginName')?.value.trim().toLowerCase(),password=document.getElementById('staffLoginPassword')?.value||'';if(!email?.includes('@')){alert('Enter the staff email address in this field.');return}try{const r=await sb().auth.signInWithPassword({email,password});if(r.error)throw r.error;const p=await profileFor(r.data.user);if(p.role!=='staff'){await sb().auth.signOut();throw Error('This account does not have the staff role')}await hydrate();if(currentSession?.data?.active===false){await sb().auth.signOut();throw Error('This staff account is deactivated')}hideAuthPages();launchPortalByRole('staff')}catch(x){alert(x.message||'Staff login failed')}};
+  window.handleAdminLogin=async function(e){
+    e?.preventDefault();
+    const email=document.getElementById('adminLoginUser')?.value.trim().toLowerCase();
+    const password=document.getElementById('adminLoginPassword')?.value||'';
+    if(!email?.includes('@')){alert('Enter the email address assigned to your Admin account.');return}
+    if(!password){alert('Enter your Admin password.');return}
+    if(!sb()?.auth){alert('Connection to the account service is not ready. Refresh the page and try again.');return}
+    try{
+      const r=await sb().auth.signInWithPassword({email,password});
+      if(r.error)throw r.error;
+      const p=await profileFor(r.data.user);
+      if(p.role!=='admin'){
+        await sb().auth.signOut();
+        throw Error('This email is registered, but it is not assigned the Admin role yet. Contact the system owner to securely enable Admin access.');
+      }
+      await hydrate();
+      hideAuthPages();
+      launchPortalByRole('admin');
+    }catch(x){alert(x.message||'Admin login failed. Check the email and password, or use Forgot Password.')}
+  };
+  window.logout=async function(){try{if(sb())await sb().auth.signOut()}catch(e){err('sign out',e)}if(channel&&sb())await sb().removeChannel(channel);channel=null;user=null;role='anon';currentSession=null;put(K.X,null);putSettings({});[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));['patientApp','staffApp','adminApp'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));showLogin()};
   const oldOnload=window.onload;window.onload=function(e){let result;try{if(typeof oldOnload==='function')result=oldOnload.call(this,e)}catch(x){err('original startup',x)};Promise.resolve().then(()=>hydrate()).catch(x=>err('startup cloud sync (page remains usable)',x));return result};
   document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('staffLoginName');if(i){i.type='email';i.placeholder='Enter staff email'}const l=document.querySelector('#staffLoginForm label');if(l)l.textContent='Staff Email';const a=document.getElementById('adminLoginUser');if(a)a.placeholder='admin2@gmail.com'});
 
@@ -243,7 +255,7 @@
     const email=document.getElementById('epResetEmail')?.value.trim().toLowerCase();
     if(!email){alert('Enter your registered email.');return}
     try{
-      const redirectTo='https://paquibojm5-stack.github.io/ERECPASS-/';
+      const redirectTo=window.location.origin+window.location.pathname;
       const r=await sb().auth.resetPasswordForEmail(email,{redirectTo});
       if(r.error)throw r.error;
       const step=document.getElementById('epResetStep');
@@ -262,10 +274,8 @@
       await sb().auth.signOut();
     }catch(e){alert('Open the secure reset link from your email first. '+(e.message||''))}
   };
-  // Password recovery: always keep the user on the real GitHub Pages root.
   sb()?.auth.onAuthStateChange((event)=>{
     if(event==='PASSWORD_RECOVERY'){
-      try{ window.history.replaceState({},document.title,window.location.pathname+'#password-recovery'); }catch(e){}
       window.openErecpassForgotPassword();
       const step=document.getElementById('epResetStep');
       if(step)step.innerHTML='<label>New Password</label><input id="epResetNewPass" type="password" autocomplete="new-password">'+
@@ -282,124 +292,4 @@
       else alert(msg);
     }
   });
-
-  // FINAL LOGIN SAFETY PATCH v2 — authenticate first, open portal immediately, sync in background
-  (function(){
-    async function waitForSupabaseClient(timeoutMs){
-      const started=Date.now();
-      while(!window.erecpassSupabase && Date.now()-started<timeoutMs){
-        await new Promise(r=>setTimeout(r,100));
-      }
-      if(!window.erecpassSupabase || !window.erecpassSupabase.auth){
-        throw new Error('Account service is not ready. Please refresh the page and try again.');
-      }
-      return window.erecpassSupabase;
-    }
-    function portalOpen(expectedRole){
-      const ids={patient:'patientApp',staff:'staffApp',admin:'adminApp'};
-      Object.values(ids).forEach(id=>document.getElementById(id)?.classList.add('hidden'));
-      const app=document.getElementById(ids[expectedRole]);
-      if(!app) throw new Error('The '+expectedRole+' portal is missing from this app build.');
-      app.classList.remove('hidden');
-      document.querySelectorAll('.auth-page').forEach(x=>x.classList.add('hidden'));
-    }
-    function launchSafely(expectedRole){
-      portalOpen(expectedRole);
-      try{
-        if(expectedRole==='patient') refreshPatientPortal();
-        else if(expectedRole==='staff') refreshStaffPortal();
-        else if(expectedRole==='admin') refreshAdminPortal();
-      }catch(e){
-        console.error('[ERecPass portal]',e);
-        // Keep the authenticated portal visible even if a secondary widget has an error.
-      }
-      try{
-        if(expectedRole==='patient') showPage('dashboard');
-      }catch(e){ console.error('[ERecPass page]',e); }
-    }
-    async function loadOwnRecord(client, authUser, profile, expectedRole){
-      if(expectedRole==='patient'){
-        const r=await client.from('patients').select('*').eq('user_id',authUser.id).maybeSingle();
-        if(r.error) throw r.error;
-        if(!r.data) throw new Error('Your Patient record was not found. Please contact the Admin.');
-        return patient(r.data);
-      }
-      if(expectedRole==='staff'){
-        const r=await client.from('staff').select('*').eq('user_id',authUser.id).maybeSingle();
-        if(r.error) throw r.error;
-        if(!r.data) throw new Error('Your Staff record was not found. Please contact the Admin.');
-        return staff(r.data);
-      }
-      return {id:authUser.id,user_id:authUser.id,email:authUser.email||'',name:profile.full_name||authUser.email||'Admin',fullName:profile.full_name||authUser.email||'Admin',active:true};
-    }
-    async function finishLogin(client,authUser,expectedRole,roleLabel){
-      const pr=await client.from('profiles').select('id,full_name,role,active').eq('id',authUser.id).maybeSingle();
-      if(pr.error) throw pr.error;
-      const profile=pr.data;
-      if(!profile) { await client.auth.signOut(); throw new Error('Account profile was not found. Please contact the system administrator.'); }
-      if(profile.active===false) { await client.auth.signOut(); throw new Error('This '+roleLabel+' account is deactivated. Login is disabled.'); }
-      if(String(profile.role||'').toLowerCase()!==expectedRole) { await client.auth.signOut(); throw new Error('This account is not enabled for '+roleLabel+' Login.'); }
-
-      const data=await loadOwnRecord(client,authUser,profile,expectedRole);
-      if(data.active===false){ await client.auth.signOut(); throw new Error('This '+roleLabel+' account is deactivated. Login is disabled.'); }
-
-      role=expectedRole; user=authUser;
-      currentSession={role:expectedRole,data};
-      put(K.X,currentSession);
-
-      // Critical: authentication and portal entry no longer wait for full-table hydration.
-      launchSafely(expectedRole);
-
-      // Secondary data sync happens after the portal is already open.
-      hydrate().catch(e=>err('background login sync',e));
-    }
-    async function runLogin(formId,work){
-      const form=document.getElementById(formId);
-      const button=form?.querySelector('button[type="submit"]');
-      if(button) button.disabled=true;
-      try{ await work(); }
-      catch(e){ console.error('[ERecPass login]',e); alert(e?.message||'Login failed. Please try again.'); }
-      finally{ if(button) button.disabled=false; }
-    }
-    window.handleLogin=async function(e){
-      e?.preventDefault();
-      await runLogin('loginForm',async()=>{
-        const email=document.getElementById('loginEmail')?.value.trim().toLowerCase();
-        const password=document.getElementById('loginPassword')?.value||'';
-        if(!email||!password){alert('Please enter your email and password.');return;}
-        const client=await waitForSupabaseClient(7000);
-        const r=await client.auth.signInWithPassword({email,password});
-        if(r.error) throw r.error;
-        if(!r.data?.user) throw new Error('Login could not be completed.');
-        await finishLogin(client,r.data.user,'patient','Patient');
-      });
-    };
-    window.handleStaffLogin=async function(e){
-      e?.preventDefault();
-      await runLogin('staffLoginForm',async()=>{
-        const email=document.getElementById('staffLoginName')?.value.trim().toLowerCase();
-        const password=document.getElementById('staffLoginPassword')?.value||'';
-        if(!email||!password){alert('Please enter Staff email and password.');return;}
-        if(!email.includes('@')){alert('Enter a valid Staff email address.');return;}
-        const client=await waitForSupabaseClient(7000);
-        const r=await client.auth.signInWithPassword({email,password});
-        if(r.error) throw r.error;
-        if(!r.data?.user) throw new Error('Staff login could not be completed.');
-        await finishLogin(client,r.data.user,'staff','Staff');
-      });
-    };
-    window.handleAdminLogin=async function(e){
-      e?.preventDefault();
-      await runLogin('adminLoginForm',async()=>{
-        const email=document.getElementById('adminLoginUser')?.value.trim().toLowerCase();
-        const password=document.getElementById('adminLoginPassword')?.value||'';
-        if(!email||!password){alert('Please enter Admin email and password.');return;}
-        const client=await waitForSupabaseClient(7000);
-        const r=await client.auth.signInWithPassword({email,password});
-        if(r.error) throw r.error;
-        if(!r.data?.user) throw new Error('Admin login could not be completed.');
-        await finishLogin(client,r.data.user,'admin','Admin');
-      });
-    };
-  })();
 })();
