@@ -2256,6 +2256,9 @@ Already have an account?
 
 <button onclick="switchAdminTab('logs')" class="px-3 py-2 bg-slate-900 text-slate-300 rounded-xl border border-cyan-500/20 hover:text-cyan-300">Activity Logs</button>
 
+
+<button onclick="switchAdminTab('settings')" class="px-3 py-2 bg-slate-900 text-slate-300 rounded-xl border border-cyan-500/20 hover:text-cyan-300">System Settings</button>
+
 </div>
 
 <!-- ADMIN TAB 1: PATIENT MANAGEMENT -->
@@ -2456,6 +2459,22 @@ Already have an account?
 
 </div>
 
+<!-- ADMIN TAB 8: SYSTEM SETTINGS -->
+<div id="adminTabSettings" class="admin-tab-content hidden space-y-4">
+  <div class="glass-card p-5 rounded-2xl max-w-lg space-y-3">
+    <h2 class="text-sm font-tech text-cyan-300 font-bold uppercase">System Logo</h2>
+    <p class="text-xs text-slate-400">Admin only. Change the ERecPass logo used across the application.</p>
+    <div class="flex items-center gap-3">
+      <div id="adminLogoPreview" class="w-16 h-16 rounded-xl border border-cyan-400/40 flex items-center justify-center overflow-hidden bg-slate-900">
+        <i class="fa-solid fa-hospital text-cyan-300 text-xl"></i>
+      </div>
+      <div class="flex-1">
+        <input id="adminLogoInput" type="file" accept="image/*" class="text-xs text-slate-300" onchange="handleAdminLogoUpload(event)">
+        <button type="button" onclick="resetSystemLogo()" class="mt-2 px-3 py-1.5 bg-slate-900 border border-cyan-500/30 text-slate-300 rounded-xl text-xs font-tech">Reset Logo</button>
+      </div>
+    </div>
+    <p class="text-[11px] text-slate-500">The selected logo is saved to the shared Supabase settings so other devices can receive it.</p>
+  </div>
 </div>
 
 </main>
@@ -3882,6 +3901,65 @@ renderAdminLogs();
 
 }
 
+function applySystemLogo(logoData) {
+  document.querySelectorAll('.brand > div:first-child, .logo-icon').forEach(el => {
+    let img = el.querySelector('img.erecpass-system-logo');
+    if (!logoData) {
+      if (img) img.remove();
+      return;
+    }
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'erecpass-system-logo';
+      img.alt = 'ERecPass Logo';
+      img.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:inherit;';
+      el.innerHTML = '';
+      el.appendChild(img);
+    }
+    img.src = logoData;
+  });
+  const preview=document.getElementById('adminLogoPreview');
+  if(preview){
+    preview.innerHTML=logoData
+      ? '<img src="'+logoData.replace(/"/g,'&quot;')+'" alt="Logo" style="width:100%;height:100%;object-fit:contain;">'
+      : '<i class="fa-solid fa-hospital text-cyan-300 text-xl"></i>';
+  }
+}
+
+function handleAdminLogoUpload(event) {
+  if (typeof role !== 'undefined' && role !== 'admin') { alert('Admin access required.'); return; }
+  const file=event?.target?.files?.[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const max=512, scale=Math.min(1,max/Math.max(img.width,img.height));
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.max(1,Math.round(img.width*scale));
+      canvas.height=Math.max(1,Math.round(img.height*scale));
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      const data=canvas.toDataURL('image/webp',0.82);
+      applySystemLogo(data);
+      epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo:data}));
+      addLog('Updated System Logo');
+      alert('System logo updated successfully.');
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function resetSystemLogo() {
+  if (typeof role !== 'undefined' && role !== 'admin') { alert('Admin access required.'); return; }
+  if(!confirm('Reset the system logo to the default logo?')) return;
+  applySystemLogo('');
+  epStore.setItem('erecpass_db_app_settings',JSON.stringify({logo:''}));
+  addLog('Reset System Logo');
+}
+
 function switchAdminTab(tabName) {
 
 document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.add('hidden'));
@@ -3899,6 +3977,8 @@ if (tabName === 'appointments') document.getElementById('adminTabAppointments').
 if (tabName === 'chat') document.getElementById('adminTabChat').classList.remove('hidden');
 
 if (tabName === 'logs') document.getElementById('adminTabLogs').classList.remove('hidden');
+
+if (tabName === 'settings') document.getElementById('adminTabSettings').classList.remove('hidden');
 
 }
 
