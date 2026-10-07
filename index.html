@@ -1681,34 +1681,7 @@ Already have an account?
 
 </div>
 
-<h2 class="section-title text-xs font-tech text-cyan-300 uppercase tracking-wider mb-2">Quick Navigation</h2>
 
-<div id="patientDashboardButtonGrid" class="quick-grid grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('dashboard')">
-    <i class="fa-solid fa-chart-line text-3xl text-blue-500"></i><span class="text-sm font-tech font-bold">Dashboard</span>
-  </button>
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('hospital-map')">
-    <i class="fa-solid fa-map text-3xl text-emerald-500"></i><span class="text-sm font-tech font-bold">Map</span>
-  </button>
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('medicines')">
-    <i class="fa-solid fa-pills text-3xl text-purple-600"></i><span class="text-sm font-tech font-bold">Meds</span>
-  </button>
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('doctors')">
-    <i class="fa-solid fa-user-doctor text-3xl text-teal-500"></i><span class="text-sm font-tech font-bold">Staff</span>
-  </button>
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('appointments')">
-    <i class="fa-solid fa-calendar-check text-3xl text-yellow-400"></i><span class="text-sm font-tech font-bold">Appts</span>
-  </button>
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('medical-records')">
-    <i class="fa-solid fa-file-medical text-3xl text-red-600"></i><span class="text-sm font-tech font-bold">Records</span>
-  </button>
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('qr')">
-    <i class="fa-solid fa-qrcode text-3xl text-sky-500"></i><span class="text-sm font-tech font-bold">My QR</span>
-  </button>
-  <button type="button" class="p-4 min-h-[112px] rounded-2xl text-center flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="patientDashboardNavigate('help')">
-    <i class="fa-solid fa-comments text-3xl text-orange-500"></i><span class="text-sm font-tech font-bold">Chat</span>
-  </button>
-</div>
 </section>
 <!-- PATIENT HOSPITAL MAP -->
 
@@ -2019,35 +1992,35 @@ Already have an account?
 
 <nav class="bottom-nav fixed bottom-0 left-0 right-0 h-[118px] border-t z-30 grid grid-cols-4 grid-rows-2 items-center justify-items-center px-2 py-2 gap-x-1 gap-y-1">
 
-<button id="nav-dashboard" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('dashboard')" type="button">
+<button id="nav-dashboard" class="text-blue-600 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('dashboard')" type="button">
 <i class="fa-solid fa-chart-line text-2xl sm:text-3xl"></i><span>Dashboard</span>
 </button>
 
-<button id="nav-hospital-map" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('hospital-map')" type="button">
+<button id="nav-hospital-map" class="text-emerald-600 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('hospital-map')" type="button">
 <i class="fa-solid fa-map text-2xl sm:text-3xl"></i><span>Map</span>
 </button>
 
-<button id="nav-medicines" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('medicines')" type="button">
+<button id="nav-medicines" class="text-purple-600 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('medicines')" type="button">
 <i class="fa-solid fa-pills text-2xl sm:text-3xl"></i><span>Meds</span>
 </button>
 
-<button id="nav-doctors" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('doctors')" type="button">
+<button id="nav-doctors" class="text-teal-500 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('doctors')" type="button">
 <i class="fa-solid fa-user-doctor text-2xl sm:text-3xl"></i><span>Staff</span>
 </button>
 
-<button id="nav-appointments" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('appointments')" type="button">
+<button id="nav-appointments" class="text-yellow-500 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('appointments')" type="button">
 <i class="fa-solid fa-calendar-check text-2xl sm:text-3xl"></i><span>Appts</span>
 </button>
 
-<button id="nav-medical-records" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('medical-records')" type="button">
+<button id="nav-medical-records" class="text-red-600 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('medical-records')" type="button">
 <i class="fa-solid fa-file-medical text-2xl sm:text-3xl"></i><span>Records</span>
 </button>
 
-<button id="nav-qr" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('qr')" type="button">
+<button id="nav-qr" class="text-sky-500 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('qr')" type="button">
 <i class="fa-solid fa-qrcode text-2xl sm:text-3xl"></i><span>My QR</span>
 </button>
 
-<button id="nav-help" class="flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('help')" type="button">
+<button id="nav-help" class="text-orange-500 flex w-full h-full flex-col items-center justify-center gap-1 text-[11px] sm:text-xs font-tech py-2" onclick="patientDashboardNavigate('help')" type="button">
 <i class="fa-solid fa-comments text-2xl sm:text-3xl"></i><span>Chat</span>
 </button>
 
