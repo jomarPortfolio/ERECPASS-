@@ -4166,7 +4166,7 @@ p.prescriptions = [{ medicine: rxText, dosage: "As prescribed", days: "Active", 
 
 }
 
-const saveFileAndFinish = (photoData) => {
+const saveFileAndFinish = async (photoData) => {
 
 if (labText || photoData) {
 
@@ -4192,7 +4192,7 @@ closeAdminEditPatientModal();
 
 refreshAdminPortal();
 
-alert("Patient record updated successfully.");
+try { await window.erecpassCloudFlush?.(); alert("Patient record updated successfully and saved to Supabase."); } catch (cloudError) { console.error(cloudError); alert("Patient record was changed on screen, but Supabase save failed. Please try again."); }
 
 };
 
@@ -4212,7 +4212,7 @@ saveFileAndFinish("");
 
 }
 
-function adminCreateStaffAccount() {
+async function adminCreateStaffAccount() {
 
 const name = document.getElementById('adminCreateStaffName').value;
 
@@ -4250,7 +4250,7 @@ addLog("Created Staff Account: " + name);
 
 renderAdminStaffList();
 
-alert("Staff account created!");
+try { await window.erecpassCloudFlush?.(); alert("Staff account created and saved to Supabase."); } catch (cloudError) { console.error(cloudError); alert("Staff account was created on screen, but Supabase save failed. Please try again."); }
 
 }
 
@@ -4286,7 +4286,7 @@ container.innerHTML += `
 
 }
 
-function toggleStaffAvailability(staffId) {
+async function toggleStaffAvailability(staffId) {
 
 const staffList = JSON.parse(epStore.getItem(DB_KEYS.STAFF)) || [];
 
@@ -4297,6 +4297,7 @@ s.available = !s.available;
 epStore.setItem(DB_KEYS.STAFF, JSON.stringify(staffList));
 
 renderAdminStaffList();
+  try { await window.erecpassCloudFlush?.(); } catch (cloudError) { console.error(cloudError); alert("Staff availability changed on screen, but Supabase save failed. Please try again."); }
 
 }
 
@@ -4322,6 +4323,7 @@ async function adminPostAnnouncement() {
     epStore.setItem(DB_KEYS.ANNOUNCEMENTS, JSON.stringify(announcements));
     addLog("Posted Announcement: " + (text || 'Photo announcement'));
     if (photoInput) photoInput.value = '';
+    await window.erecpassCloudFlush?.();
     alert("Announcement posted and saved to Supabase.");
   } catch (error) {
     alert('Could not save the announcement: ' + (error.message || error));
@@ -4344,7 +4346,7 @@ reader.readAsDataURL(file);
 
 }
 
-function adminSaveAgreement() {
+async function adminSaveAgreement() {
 
 const text = document.getElementById('adminAgreementText').value;
 
@@ -4356,7 +4358,7 @@ addLog("Updated system agreement document.");
 
 loadAgreementData();
 
-alert("Agreement updated.");
+try { await window.erecpassCloudFlush?.(); alert("Agreement updated and saved to Supabase."); } catch (cloudError) { console.error(cloudError); alert("Agreement changed on screen, but Supabase save failed. Please try again."); }
 
 }
 
