@@ -1877,7 +1877,7 @@ Already have an account?
 
 <button class="primary-btn flex-1 py-2.5 rounded-xl font-tech text-xs font-bold" onclick="generatePatientQR()">Generate QR</button>
 
-<button class="px-3 py-2.5 bg-slate-900 border border-cyan-400/40 text-cyan-300 rounded-xl font-tech text-xs font-bold" onclick="downloadPatientQR()"><i class="fa-solid fa-download"></i> Save</button>
+<button class="px-3 py-2.5 bg-slate-900 border border-cyan-400/40 text-cyan-300 rounded-xl font-tech text-xs font-bold" onclick="downloadPatientQR()" title="Download / Save QR"><i class="fa-solid fa-download"></i> Download / Save QR</button>
 
 </div>
 
@@ -3511,9 +3511,48 @@ document.getElementById('patientQrDisplay').innerHTML = `<img src="${qrUrl}" alt
 
 }
 
-function downloadPatientQR() {
+async function downloadPatientQR() {
 
-alert("QR Image downloaded to your device storage.");
+const qrDisplay = document.getElementById('patientQrDisplay');
+if (!qrDisplay) return;
+
+let qrImg = qrDisplay.querySelector('img');
+
+if (!qrImg) {
+  if (!currentSession?.data?.id) {
+    alert("Patient QR is not available. Please log in again.");
+    return;
+  }
+  generatePatientQR();
+  qrImg = qrDisplay.querySelector('img');
+}
+
+const qrUrl = qrImg?.src;
+if (!qrUrl) {
+  alert("Please generate your QR code first.");
+  return;
+}
+
+const fileName = 'ERecPass-Patient-QR-' + String(currentSession.data.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '.png';
+
+try {
+  const response = await fetch(qrUrl, { mode: 'cors', cache: 'no-store' });
+  if (!response.ok) throw new Error('QR image could not be downloaded');
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  alert("QR code saved/downloaded. Check your phone's Downloads or Files app.");
+} catch (error) {
+  console.warn('ERecPass QR download fallback:', error);
+  window.open(qrUrl, '_blank', 'noopener');
+  alert("The QR image was opened. Long-press the QR image and choose Save/Download Image.");
+}
 
 }
 
