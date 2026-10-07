@@ -55,7 +55,7 @@
       channel.subscribe();
     }finally{loading=false}
   }
-  async function persist(k,oldRaw,newRaw){
+  async function persist(k,oldRaw,newRaw,attempt=0){
     // Never drop an admin write just because a realtime refresh is running.
     // Writes are queued by epStore.setItem and will execute after hydration settles.
     if(!sb()||!user)return;
@@ -65,7 +65,7 @@
         if(role==='patient'){
           const before=new Map(old.map(p=>[String(p.id),p]));
           for(const p of a){const o=before.get(String(p.id));if(o&&JSON.stringify([o.fullName,o.sim,o.photo,o.ageCategory,o.guardianNum])!==JSON.stringify([p.fullName,p.sim,p.photo,p.ageCategory,p.guardianNum])&&(p.user_id===user.id||p.id===user.id)){
-            const r=await client.rpc('update_own_patient_profile',{p_full_name:p.fullName??null,p_sim:p.sim??null,p_photo:p.photo??null,p_age_category:p.ageCategory??null,p_guardian_num:p.guardianNum??null});if(r.error)throw r.error;
+            const r=await client.rpc('update_own_patient_profile',{p_full_name:p.fullName??null,p_sim:p.sim??null,p_photo:p.photo??null,p_age_category:p.ageCategory??null,p_guardian_num:p.guardianNum??null,p_lab_results:p.labResults??null,p_prescriptions:p.prescriptions??null,p_doctor_notes:p.doctorNotes??null});if(r.error)throw r.error;
           }}
         }else if(role==='admin'||role==='staff'){
           const rows=a.map(p=>({id:String(p.id),user_id:p.user_id||p.auth_user_id||null,full_name:p.fullName||p.full_name||p.name||'',email:p.email||'',sim:p.sim||'',photo:p.photo||'',age_category:p.ageCategory||p.age_category||'',guardian_num:p.guardianNum||p.guardian_num||'',status:p.status||'Green',lab_results:p.labResults||p.lab_results||[],prescriptions:p.prescriptions||[],doctor_notes:p.doctorNotes||p.doctor_notes||'',online:!!p.online,active:p.active!==false}));
@@ -106,7 +106,14 @@
         const seen=new Set(old.map(x=>String(x.timestamp)+'|'+String(x.text)));
         for(const x of a.filter(x=>!seen.has(String(x.timestamp)+'|'+String(x.text)))){const r=await client.from('activity_logs').insert({actor_id:user.id,event_text:String(x.text||'Activity')});if(r.error)throw r.error}
       }
-    }catch(e){err('write '+k,e);window.dispatchEvent(new CustomEvent('erecpass-cloud-error',{detail:{key:k,message:e.message||String(e)}}))}
+    }catch(e){
+      err('write '+k,e);
+      window.dispatchEvent(new CustomEvent('erecpass-cloud-error',{detail:{key:k,message:e.message||String(e),attempt:attempt+1}}));
+      if(attempt<2 && sb() && user){
+        await new Promise(r=>setTimeout(r,700*(attempt+1)));
+        return persist(k,oldRaw,newRaw,attempt+1);
+      }
+    }
   }
   window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(![K.X,K.A].includes(k)&&user){queue=queue.then(async()=>{while(loading)await new Promise(r=>setTimeout(r,50));await persist(k,old,n)}).catch(e=>err('write queue',e))}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&k!==K.T&&old!==undefined&&user)queue=queue.then(async()=>{while(loading)await new Promise(r=>setTimeout(r,50));await persist(k,old,'[]')}).catch(e=>err('remove',e))},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
   window.erecpassCloudHydrate=hydrate;
@@ -221,5 +228,12 @@
     }
   });
 
-  window.addEventListener('erecpass-cloud-error',e=>console.error('Cloud save failed:',e.detail));
+  window.addEventListener('erecpass-cloud-error',e=>{
+    console.error('Cloud save failed:',e.detail);
+    if(e.detail?.attempt>=3){
+      const msg='Cloud save failed. Please check your connection and try again. Nothing was removed from this screen.';
+      if(typeof epModal==='function') epModal('erecpassCloudErrorModal','Save Error','<p style="color:#8fb9b5;font-size:12px">'+msg+'</p>');
+      else alert(msg);
+    }
+  });
 })();
