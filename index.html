@@ -7183,11 +7183,47 @@ window.renderErecpassAdminAccounts=function(){
       '<div class="erecpass-added-actions">'+
       '<button onclick="viewErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">View</button>'+
       '<button onclick="editErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">Edit</button>'+
+      '<button onclick="openErecpassChangePassword(\\''+epEscape(epAdminType)+'\\',\\''+epEscape(id)+'\\')">Change Password</button>'+
       '<button onclick="toggleErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">'+(active?'Deactivate':'Activate')+'</button>'+
       '<button class="danger" onclick="deleteErecpassAdminAccount(\''+epEscape(epAdminType)+'\',\''+epEscape(id)+'\')">Delete</button>'+
       '</div></div>';
   }).join('') || '<p style="color:#8fb9b5;font-size:11px">No accounts found.</p>';
 };
+window.openErecpassChangePassword=function(type,id){
+  const a=(type==='patient'?epPatients():epStaff()).find(x=>String(x.id)===String(id));
+  if(!a){ alert('Account not found.'); return; }
+  epModal('erecpassChangePasswordModal','Change Password',
+    '<p style="color:#8fb9b5;font-size:11px">Admin-only password change for '+epEscape(a.fullName||a.name||a.email||'this account')+'.</p>'+
+    '<label>New Password</label><input id="epAdminNewPassword" type="password" autocomplete="new-password" placeholder="At least 8 characters">'+
+    '<label>Confirm Password</label><input id="epAdminNewPassword2" type="password" autocomplete="new-password" placeholder="Re-enter password">'+
+    '<div class="erecpass-added-actions"><button onclick="saveErecpassChangedPassword(\\''+epEscape(type)+'\\',\\''+epEscape(id)+'\\')">Save New Password</button></div>');
+};
+window.saveErecpassChangedPassword=async function(type,id){
+  const arr=type==='patient'?epPatients():epStaff();
+  const a=arr.find(x=>String(x.id)===String(id));
+  if(!a){ alert('Account not found.'); return; }
+  const p1=String(document.getElementById('epAdminNewPassword')?.value||'');
+  const p2=String(document.getElementById('epAdminNewPassword2')?.value||'');
+  if(p1.length<8){ alert('Password must be at least 8 characters.'); return; }
+  if(!/[#!?]/.test(p1)){ alert('Password must contain at least one of these symbols: # ! ?'); return; }
+  if(p1!==p2){ alert('Passwords do not match.'); return; }
+  const userId=a.user_id||a.auth_user_id||'';
+  if(!userId){ alert('This account is not linked to a secure login account.'); return; }
+  if(!window.erecpassSupabase?.functions){ alert('Account service is not connected. Refresh the page and try again.'); return; }
+  try{
+    const result=await window.erecpassSupabase.functions.invoke('admin-manage-account',{
+      body:{action:'change_password',userId,password:p1}
+    });
+    if(result.error) throw result.error;
+    if(result.data?.error) throw new Error(result.data.error);
+    document.getElementById('erecpassChangePasswordModal')?.classList.remove('active');
+    if(typeof addLog==='function') addLog('Admin changed password for '+type+' account: '+(a.fullName||a.name||a.email||id));
+    alert('Password changed successfully. The account can now log in using the new password.');
+  }catch(e){
+    alert('Could not change password: '+(e.message||'Please try again.'));
+  }
+};
+
 window.viewErecpassAdminAccount=function(type,id){
   const a=(type==='patient'?epPatients():epStaff()).find(x=>String(x.id)===String(id));
   if(!a)return;
