@@ -56,7 +56,9 @@
     }finally{loading=false}
   }
   async function persist(k,oldRaw,newRaw){
-    if(loading||!sb()||!user)return;
+    // Never drop an admin write just because a realtime refresh is running.
+    // Writes are queued by epStore.setItem and will execute after hydration settles.
+    if(!sb()||!user)return;
     const old=parse(oldRaw),a=parse(newRaw),client=sb();
     try{
       if(k===K.P){
@@ -106,7 +108,7 @@
       }
     }catch(e){err('write '+k,e);window.dispatchEvent(new CustomEvent('erecpass-cloud-error',{detail:{key:k,message:e.message||String(e)}}))}
   }
-  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(!loading&&![K.X,K.A].includes(k)){queue=queue.then(()=>persist(k,old,n)).catch(e=>err('write queue',e))}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&k!==K.T&&old!==undefined&&!loading)queue=queue.then(()=>persist(k,old,'[]')).catch(e=>err('remove',e))},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
+  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(![K.X,K.A].includes(k)&&user){queue=queue.then(async()=>{while(loading)await new Promise(r=>setTimeout(r,50));await persist(k,old,n)}).catch(e=>err('write queue',e))}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&k!==K.T&&old!==undefined&&user)queue=queue.then(async()=>{while(loading)await new Promise(r=>setTimeout(r,50));await persist(k,old,'[]')}).catch(e=>err('remove',e))},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
   window.erecpassCloudHydrate=hydrate;
   const profileFor=async u=>{const r=await sb().from('profiles').select('id,full_name,role,active').eq('id',u.id).single();if(r.error)throw r.error;if(r.data.active===false)throw Error('This account is deactivated');return r.data};
   // The old SMS button only generated a code in this browser; it did not send a real SMS.
