@@ -3041,36 +3041,123 @@ alert("Invalid email or password!");
 
 }
 
-function handleStaffLogin(e) {
+async function handleStaffLogin(e) {
+  if (e) e.preventDefault();
 
-e.preventDefault();
+  const email = String(document.getElementById('staffLoginName')?.value || '').trim().toLowerCase();
+  const pass = String(document.getElementById('staffLoginPassword')?.value || '');
 
-const name = document.getElementById('staffLoginName').value;
+  if (!email || !pass) {
+    alert("Please enter your Staff email and password.");
+    return;
+  }
 
-const pass = document.getElementById('staffLoginPassword').value;
+  try {
+    const client = window.erecpassSupabase;
 
-const staffList = JSON.parse(epStore.getItem(DB_KEYS.STAFF));
+    // Staff accounts created by Admin use Supabase Auth.
+    if (client?.auth) {
+      const { data, error } = await client.auth.signInWithPassword({
+        email,
+        password: pass
+      });
 
-const staff = staffList.find(s => s.name.toLowerCase() === name.toLowerCase() && s.password === pass);
+      if (error) throw error;
+      if (!data?.user) throw new Error("Staff account could not be authenticated.");
 
-if (staff) {
+      const profileResult = await client
+        .from('profiles')
+        .select('id,full_name,role,active')
+        .eq('id', data.user.id)
+        .maybeSingle();
 
-currentSession = { role: 'staff', data: staff };
+      if (profileResult.error) throw profileResult.error;
 
-epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+      const profile = profileResult.data;
 
-addLog("Staff logged in: " + staff.name);
+      if (!profile || String(profile.role || '').toLowerCase() !== 'staff') {
+        await client.auth.signOut();
+        alert("This account is not enabled for Staff Login.");
+        return;
+      }
 
-hideAuthPages();
+      if (profile.active === false) {
+        await client.auth.signOut();
+        alert("This Staff account is deactivated. Login is disabled.");
+        return;
+      }
 
-launchPortalByRole('staff');
+      // Refresh the shared Staff record from Supabase so the portal has
+      // the latest name, role, task, availability, and account status.
+      try {
+        await window.erecpassCloudHydrate?.();
+      } catch (syncError) {
+        console.warn("Staff cloud refresh warning:", syncError);
+      }
 
-} else {
+      const staffList = JSON.parse(epStore.getItem(DB_KEYS.STAFF) || '[]');
+      const staff = staffList.find(s =>
+        String(s.user_id || '') === String(data.user.id) ||
+        String(s.email || '').trim().toLowerCase() === email
+      ) || {
+        id: data.user.id,
+        user_id: data.user.id,
+        name: profile.full_name || email,
+        email,
+        role: 'Staff',
+        task: '',
+        available: true,
+        schedule: 'Mon-Sat',
+        active: true
+      };
 
-alert("Invalid staff name or password!");
+      if (staff.active === false) {
+        await client.auth.signOut();
+        alert("This Staff account is deactivated. Login is disabled.");
+        return;
+      }
 
-}
+      currentSession = { role: 'staff', data: staff };
+      epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+      addLog("Staff logged in: " + (staff.name || email));
 
+      hideAuthPages();
+      launchPortalByRole('staff');
+      return;
+    }
+
+    // Legacy/local fallback for older Staff records.
+    const staffList = JSON.parse(epStore.getItem(DB_KEYS.STAFF) || '[]');
+    const staff = staffList.find(s =>
+      (String(s.email || '').trim().toLowerCase() === email ||
+       String(s.name || '').trim().toLowerCase() === email) &&
+      s.password === pass &&
+      s.active !== false
+    );
+
+    if (!staff) {
+      alert("Invalid Staff email or password!");
+      return;
+    }
+
+    currentSession = { role: 'staff', data: staff };
+    epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+    addLog("Staff logged in: " + (staff.name || email));
+    hideAuthPages();
+    launchPortalByRole('staff');
+
+  } catch (err) {
+    console.error("Staff login error:", err);
+    const message = String(err?.message || err || '');
+
+    if (/invalid login credentials/i.test(message)) {
+      alert("Invalid Staff email or password.");
+    } else if (/email not confirmed/i.test(message)) {
+      alert("Please verify the Staff email address before logging in.");
+    } else {
+      alert("Staff login failed: " + message);
+    }
+  }
 }
 
 async function handleAdminLogin(e) {
