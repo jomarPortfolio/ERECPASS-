@@ -177,7 +177,7 @@
   };
   window.logout=async function(){try{if(sb())await sb().auth.signOut()}catch(e){err('sign out',e)}if(channel&&sb())await sb().removeChannel(channel);channel=null;user=null;role='anon';currentSession=null;put(K.X,null);putSettings({});[K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>put(k,[]));['patientApp','staffApp','adminApp'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));showLogin()};
   const oldOnload=window.onload;window.onload=function(e){let result;try{if(typeof oldOnload==='function')result=oldOnload.call(this,e)}catch(x){err('original startup',x)};Promise.resolve().then(()=>hydrate()).catch(x=>err('startup cloud sync (page remains usable)',x));return result};
-  document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('staffLoginName');if(i){i.type='email';i.placeholder='Enter staff email'}const l=document.querySelector('#staffLoginForm label');if(l)l.textContent='Staff Email';const a=document.getElementById('adminLoginUser');if(a)a.placeholder='admin2@hospital.com'});
+  document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('staffLoginName');if(i){i.type='email';i.placeholder='Enter staff email'}const l=document.querySelector('#staffLoginForm label');if(l)l.textContent='Staff Email';const a=document.getElementById('adminLoginUser');if(a)a.placeholder='admin2@gmail.com'});
 
   window.openErecpassForgotPassword=function(){
     epModal('erecpassForgotModal','Forgot Password',
