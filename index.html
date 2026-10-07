@@ -1279,6 +1279,10 @@ Loading system terms and health data agreement...
 
 </form>
 
+<button id="erecpassForgotBtnAdded" type="button" onclick="openErecpassForgotPassword(); return false;" class="w-full py-2 text-xs text-rose-400 font-tech font-bold hover:underline cursor-pointer relative z-50" style="pointer-events:auto !important;">
+  Forgot Password?
+</button>
+
 <p class="text-center text-xs text-slate-400 mt-4">
 
 Don't have an account? 
@@ -7281,15 +7285,6 @@ function installPasswordEyes(){
 }
 function installAddedUI(){
   installPasswordEyes();
-
-  const form=document.getElementById('loginForm');
-  if(form && !document.getElementById('erecpassForgotBtnAdded')){
-    const b=document.createElement('button');
-    b.id='erecpassForgotBtnAdded'; b.type='button';
-    b.textContent='Forgot Password?'; b.onclick=window.openErecpassForgotPassword;
-    b.className='w-full py-2 text-xs text-rose-400 font-tech font-bold hover:underline';
-    form.parentNode.insertBefore(b,form.nextSibling);
-  }
 
   /* Add Account Management button to an existing admin area without replacing it. */
   if(!document.getElementById('erecpassAdminAccountManagementBtn')){
