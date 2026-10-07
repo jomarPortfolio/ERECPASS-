@@ -7431,8 +7431,33 @@ setTimeout(installAddedUI,2500);
 })();
 </script>
 
-<script src="./supabase-client.js?v=20261007"></script>
-<script src="./supabase-runtime.js?v=20261007"></script>
+<script src="./supabase-client.js?v=20261008"></script>
+<script src="./supabase-runtime.js?v=20261008"></script>
+<!-- ERECPASS BUTTON SAFETY: ensure account forms always reach the current handlers -->
+<script>
+(function(){
+  function wire(){
+    [
+      ['loginForm','handleLogin'],
+      ['staffLoginForm','handleStaffLogin'],
+      ['adminLoginForm','handleAdminLogin']
+    ].forEach(function(pair){
+      var form=document.getElementById(pair[0]);
+      if(!form || form.dataset.erecpassWired==='1') return;
+      form.dataset.erecpassWired='1';
+      form.addEventListener('submit',function(e){
+        e.preventDefault();
+        if(typeof window[pair[1]]==='function') window[pair[1]](e);
+        else alert('Login service is still loading. Please try again in a moment.');
+      },true);
+    });
+  }
+  document.addEventListener('DOMContentLoaded',wire);
+  window.addEventListener('erecpass-supabase-ready',wire);
+  setTimeout(wire,100);
+  setTimeout(wire,1000);
+})();
+</script>
 <!-- ERECPASS WHITE-SCREEN RECOVERY: reveal a usable entry screen if startup fails -->
 <script>
 (function(){
