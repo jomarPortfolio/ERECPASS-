@@ -2311,6 +2311,14 @@ Already have an account?
 
 <div>
 
+<label class="block text-xs font-tech text-slate-300 mb-1">Staff Email</label>
+
+<input type="email" id="adminCreateStaffEmail" placeholder="staff@hospital.com" autocomplete="off" class="input-box w-full p-2 rounded-xl text-xs">
+
+</div>
+
+<div>
+
 <label class="block text-xs font-tech text-slate-300 mb-1">Password</label>
 
 <input type="password" id="adminCreateStaffPass" placeholder="Assign password" class="input-box w-full p-2 rounded-xl text-xs">
@@ -4317,47 +4325,50 @@ saveFileAndFinish("");
 }
 
 async function adminCreateStaffAccount() {
+const name = document.getElementById('adminCreateStaffName')?.value.trim();
+const email = document.getElementById('adminCreateStaffEmail')?.value.trim().toLowerCase();
+const pass = document.getElementById('adminCreateStaffPass')?.value || '';
+const role = document.getElementById('adminCreateStaffRole')?.value.trim() || 'Staff';
+const task = document.getElementById('adminCreateStaffTask')?.value.trim() || 'General Duty';
 
-const name = document.getElementById('adminCreateStaffName').value;
+if (!name || !email || !pass) { alert("Please complete Staff Name, Staff Email, and Password."); return; }
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert("Please enter a valid Staff email address."); return; }
+if (pass.length < 8 || !/[#!?]/.test(pass)) { alert("Password must be at least 8 characters and contain at least one of these symbols: # ! ?"); return; }
+if (!window.erecpassSupabase?.functions) { alert("The account service is not ready. Please refresh the page and try again."); return; }
 
-const pass = document.getElementById('adminCreateStaffPass').value;
+const button = document.querySelector('#adminTabStaff button[onclick="adminCreateStaffAccount()"]');
+if (button) { button.disabled = true; button.textContent = "CREATING STAFF ACCOUNT…"; }
 
-const role = document.getElementById('adminCreateStaffRole').value;
+try {
+  const { data, error } = await window.erecpassSupabase.functions.invoke('admin-manage-account', {
+    body: { action: 'create_staff', fullName: name, email, password: pass, roleTitle: role, task }
+  });
+  if (error) throw error;
+  if (!data?.ok || !data?.staff) throw new Error(data?.error || 'Staff account could not be created.');
 
-const task = document.getElementById('adminCreateStaffTask').value;
+  const staffList = JSON.parse(epStore.getItem(DB_KEYS.STAFF)) || [];
+  const created = data.staff;
+  const staffRecord = {
+    id: created.id, user_id: created.user_id, name: created.name, email: created.email,
+    role: created.role || role, task: created.task || task, available: true,
+    schedule: "Mon-Sat", active: true
+  };
+  const existingIndex = staffList.findIndex(s => String(s.id) === String(created.id) || String(s.user_id || '') === String(created.user_id || ''));
+  if (existingIndex >= 0) staffList[existingIndex] = { ...staffList[existingIndex], ...staffRecord };
+  else staffList.push(staffRecord);
+  epStore.setItem(DB_KEYS.STAFF, JSON.stringify(staffList));
 
-if (!name || !pass) { alert("Please complete name and password."); return; }
-
-const staffList = JSON.parse(epStore.getItem(DB_KEYS.STAFF)) || [];
-
-staffList.push({
-
-id: "STF-0" + (staffList.length + 1),
-
-name: name,
-
-password: pass,
-
-role: role || "Staff",
-
-task: task || "General Duty",
-
-available: true,
-
-schedule: "Mon-Sat"
-
-});
-
-epStore.setItem(DB_KEYS.STAFF, JSON.stringify(staffList));
-
-addLog("Created Staff Account: " + name);
-
-renderAdminStaffList();
-
-try { await window.erecpassCloudFlush?.(); alert("Staff account created and saved to Supabase."); } catch (cloudError) { console.error(cloudError); alert("Staff account was created on screen, but Supabase save failed. Please try again."); }
-
+  addLog("Created Staff Account: " + name + " (" + email + ")");
+  renderAdminStaffList();
+  ['adminCreateStaffName','adminCreateStaffEmail','adminCreateStaffPass','adminCreateStaffRole','adminCreateStaffTask'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  alert("Staff account created successfully.\n\nStaff Email: " + email + "\nThe Staff can now log in using the email and password assigned by Admin.");
+} catch (cloudError) {
+  console.error("Staff account creation failed:", cloudError);
+  alert("Could not create Staff account: " + (cloudError.message || cloudError));
+} finally {
+  if (button) { button.disabled = false; button.textContent = "Create Staff Account"; }
 }
-
+}
 function renderAdminStaffList() {
 
 const staffList = JSON.parse(epStore.getItem(DB_KEYS.STAFF)) || [];
