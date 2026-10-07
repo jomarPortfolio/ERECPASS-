@@ -7461,7 +7461,8 @@ setTimeout(installAddedUI,2500);
 (function(){
 'use strict';
 function availabilityStore(){
-  try{return window.epStore||window.localStorage}catch(e){return window.localStorage}
+  // ERecPass data is Supabase-backed. Never fall back to browser localStorage.
+  return window.epStore||null;
 }
 function availabilityStaff(){
   const s=availabilityStore();
