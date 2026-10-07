@@ -2908,17 +2908,15 @@ let tempSimCode = "";
 
 function sendSimCode() {
 
-const sim = document.getElementById('regSim').value;
+const sim = document.getElementById('regSim').value.trim();
 
 if (!sim) { alert("Please enter SIM mobile number."); return; }
 
-tempSimCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-alert("Verification Code sent to " + sim + ": " + tempSimCode);
+alert("SMS verification is not connected yet. You can continue registration and verify your account through the email confirmation link.");
 
 }
 
-function handleRegister(e) {
+async function handleRegister(e) {
 
 e.preventDefault();
 
@@ -2933,14 +2931,6 @@ const code = document.getElementById('regVerifyCode').value;
 const pass = document.getElementById('regPassword').value;
 
 const confirmPass = document.getElementById('regConfirmPassword').value;
-
-if (code !== tempSimCode && code !== "123456") {
-
-alert("Invalid SMS verification code!");
-
-return;
-
-}
 
 if (pass !== confirmPass) {
 
@@ -2958,57 +2948,71 @@ return;
 
 }
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS));
+const client = window.erecpassSupabase;
 
-if (patients.find(p => p.email === email)) {
+if (!client) {
 
-alert("Email already registered.");
+alert("Cloud authentication is not available. Please refresh the app and try again.");
 
 return;
 
 }
 
-const newId = "ER-2026-0" + (patients.length + 100);
+try {
 
-const newPatient = {
+const redirectTo = window.location.origin + window.location.pathname;
 
-id: newId,
-
-fullName: fullName,
+const { data, error } = await client.auth.signUp({
 
 email: email,
 
 password: pass,
 
+options: {
+
+emailRedirectTo: redirectTo,
+
+data: {
+
+full_name: fullName,
+
 sim: sim,
 
-photo: "https://via.placeholder.com/100",
+age_category: "Adult",
 
-ageCategory: "Adult",
+guardian_num: sim
 
-guardianNum: sim,
+}
 
-status: "Green",
+}
 
-labResults: [],
+});
 
-prescriptions: [],
+if (error) throw error;
 
-doctorNotes: "Account created successfully.",
+if (!data?.user) throw new Error("Unable to create the patient account.");
 
-online: true
+if (data.session) {
 
-};
+await client.auth.signOut();
 
-patients.push(newPatient);
+alert("Patient account created successfully! You can now login.");
 
-epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
+} else {
 
-addLog("New Patient Registered: " + fullName + " (" + newId + ")");
+alert("Patient account created successfully! Please check your email and click the confirmation link before logging in.");
 
-alert("Account created successfully! Please login.");
+}
 
 showLogin();
+
+} catch (err) {
+
+console.error("Patient registration error:", err);
+
+alert("Registration failed: " + (err?.message || "Please try again."));
+
+}
 
 }
 
