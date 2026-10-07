@@ -3923,11 +3923,16 @@ if (typeof Html5Qrcode === 'undefined') {
 alert('QR camera scanner is still loading. Please wait a moment and try again.');
 return;
 }
+if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+alert('Camera access is unavailable here. Please open ERecPass using its HTTPS app link.');
+return;
+}
 if (staffHtml5QrCode) {
 try { staffHtml5QrCode.stop().catch(() => {}); } catch (e) {}
 try { staffHtml5QrCode.clear(); } catch (e) {}
 staffHtml5QrCode = null;
 }
+
 staffHtml5QrCode = new Html5Qrcode('staffQrReader');
 
 const onScanSuccess = (decodedText) => {
@@ -3936,22 +3941,40 @@ stopStaffQrScanner();
 };
 const onScanError = () => {};
 
-Html5Qrcode.getCameras().then(cameras => {
-if (!cameras || !cameras.length) throw new Error('NO_CAMERA');
-let backCamera = cameras.find(c => /back|rear|environment|0\.5|wide/i.test(c.label));
-let cameraId = (backCamera || cameras[cameras.length - 1]).id;
+const startOptions = {
+fps: 10,
+qrbox: 250,
+aspectRatio: 1.333334
+};
+
+// Start directly from the user button click. This lets the browser/Android
+// camera permission flow belong to the actual scanner instead of a temporary
+// getUserMedia stream.
+staffHtml5QrCode.start(
+{ facingMode: { exact: 'environment' } },
+startOptions,
+onScanSuccess,
+onScanError
+).catch(firstError => {
+console.warn('Rear camera start failed; trying any available camera.', firstError);
+
+// Fallback for devices/browsers that do not accept the environment constraint.
 return staffHtml5QrCode.start(
-cameraId,
-{ fps: 10, qrbox: 250, aspectRatio: 1.333334 },
+{ facingMode: 'environment' },
+startOptions,
 onScanSuccess,
 onScanError
 );
 }).catch(err => {
 console.error('ERecPass Staff QR camera error:', err);
-let message = 'Camera could not be opened. Please allow Camera permission, then try again.';
-if (err && err.message === 'NO_CAMERA') message = 'No camera was found on this device.';
-else if (err && err.name === 'NotAllowedError') message = 'Camera permission is blocked. Allow Camera permission for ERecPass, then tap Start Camera again.';
-else if (err && err.name === 'NotReadableError') message = 'The camera is busy. Close other apps using the camera, then try again.';
+let message = 'Camera could not be opened. Please check that Camera permission is allowed for the browser/app.';
+if (err && err.name === 'NotAllowedError') {
+message = 'Camera permission is blocked. Please allow Camera permission for the browser/app, then tap Start Camera again.';
+} else if (err && err.name === 'NotFoundError') {
+message = 'No camera was found on this device.';
+} else if (err && err.name === 'NotReadableError') {
+message = 'The camera is busy. Close other apps using the camera, then try again.';
+}
 alert(message);
 try { if (staffHtml5QrCode) staffHtml5QrCode.clear(); } catch (e) {}
 staffHtml5QrCode = null;
@@ -5746,88 +5769,14 @@ window.renderAdminAppointmentsList();
 
 <script>
 /* ============================================================
-   ADD-ONLY CAMERA PERMISSION FIX
-   Keeps the existing scanner UI/buttons unchanged.
-   Requests camera permission before starting the existing QR scanner.
+   STAFF CAMERA FIX
+   Camera permission is handled by Html5Qrcode itself from the
+   Staff Start Camera button. No temporary permission stream is used.
    ============================================================ */
-(function () {
-  function requestErecPassCameraPermission() {
-    return new Promise(function (resolve, reject) {
-      if (!window.isSecureContext) {
-        reject(new Error(
-          "Camera access requires HTTPS (or a secure localhost/Capacitor app)."
-        ));
-        return;
-      }
+window.requestErecPassCameraPermission = function () {
+  return Promise.resolve();
+};
 
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        reject(new Error("Camera access is not supported by this browser."));
-        return;
-      }
-
-      navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" }
-        },
-        audio: false
-      }).then(function (stream) {
-        // Permission has been granted. Release the temporary stream;
-        // Html5Qrcode will open the camera for the actual scan.
-        stream.getTracks().forEach(function (track) {
-          try { track.stop(); } catch (e) {}
-        });
-        resolve();
-      }).catch(function (err) {
-        reject(err);
-      });
-    });
-  }
-
-  var originalStartStaffQrScanner = window.startStaffQrScanner;
-
-  if (typeof originalStartStaffQrScanner === "function") {
-    window.startStaffQrScanner = function () {
-      var button = document.querySelector('[onclick="startStaffQrScanner()"]');
-      if (button) {
-        button.disabled = true;
-        button.setAttribute("aria-busy", "true");
-      }
-
-      requestErecPassCameraPermission()
-        .then(function () {
-          originalStartStaffQrScanner.apply(this, arguments);
-        })
-        .catch(function (err) {
-          var message = "Camera access was not allowed.";
-
-          if (err && err.name === "NotAllowedError") {
-            message =
-              "Camera permission was denied. Please allow Camera permission " +
-              "for this site/app in your browser or phone Settings, then tap Start Camera again.";
-          } else if (err && err.name === "NotFoundError") {
-            message = "No camera was found on this device.";
-          } else if (err && err.name === "NotReadableError") {
-            message =
-              "The camera is currently being used by another app. Close it and try again.";
-          } else if (err && err.message) {
-            message = err.message;
-          }
-
-          alert(message);
-        })
-        .finally(function () {
-          if (button) {
-            button.disabled = false;
-            button.removeAttribute("aria-busy");
-          }
-        });
-    };
-  }
-
-  // Expose a helper for environments that need the permission prompt
-  // before the scanner is used.
-  window.requestErecPassCameraPermission = requestErecPassCameraPermission;
-})();
 </script>
 
 <!-- ERecPass ADD-ON: Dark/light mode and language -->
