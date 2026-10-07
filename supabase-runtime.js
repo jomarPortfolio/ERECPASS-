@@ -1,7 +1,7 @@
 
 (function(){
   const cache=new Map(),K={P:'erecpass_db_patients',S:'erecpass_db_staff',A:'erecpass_db_admin_accounts',N:'erecpass_db_announcements',B:'erecpass_db_appointments',C:'erecpass_db_chats',L:'erecpass_db_logs',X:'erecpass_db_session',G:'erecpass_db_agreement',E:'erecpass_db_emergencynums',T:'erecpass_db_app_settings'};
-  [K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>cache.set(k,'[]'));putSettings({});
+  [K.P,K.S,K.A,K.N,K.B,K.C,K.L].forEach(k=>cache.set(k,'[]'));cache.set(K.T,'{}');
   let role='anon',user=null,loading=false,channel=null,queue=Promise.resolve();
   const sb=()=>window.erecpassSupabase,putSettings=v=>cache.set(K.T,JSON.stringify(v||{})),parse=(s,d=[])=>{try{return JSON.parse(s||'null')??d}catch{return d}},put=(k,v)=>cache.set(k,typeof v==='string'?v:JSON.stringify(v)),err=(s,e)=>console.error('[ERecPass cloud] '+s,e);
   const patient=p=>({id:p.id,user_id:p.user_id,fullName:p.full_name,email:p.email,sim:p.sim,photo:p.photo,ageCategory:p.age_category,guardianNum:p.guardian_num,status:p.status,labResults:p.lab_results||[],prescriptions:p.prescriptions||[],doctorNotes:p.doctor_notes||'',online:!!p.online,active:p.active!==false});
@@ -40,11 +40,6 @@
     }finally{loading=false}
   }
   async function persist(k,oldRaw,newRaw){
-else if(k===K.T&&role==='admin'){
-        const v=parse(newRaw,{});
-        const r=await client.from('app_settings').upsert({setting_key:'system_branding',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
-        if(r.error)throw r.error;
-      } 
     if(loading||!sb()||!user)return;
     const old=parse(oldRaw),a=parse(newRaw),client=sb();
     try{
@@ -77,6 +72,10 @@ else if(k===K.T&&role==='admin'){
         if(del.length){const r=await client.from('announcements').delete().in('legacy_id',del);if(r.error)throw r.error}
       }else if(k===K.C){
         for(const x of a){if(!x.message&&!x.text)continue;const r=await client.from('help_center_messages').upsert({legacy_id:String(x.id||crypto.randomUUID()),user_id:x.user_id||user.id,full_name:x.fullName||x.full_name||currentSession?.data?.fullName||currentSession?.data?.name||'',email:x.email||user.email||'',message:x.message||x.text||'',admin_reply:x.reply||x.admin_reply||'',status:x.status||'New'},{onConflict:'legacy_id'});if(r.error)throw r.error}
+      }else if(k===K.T&&role==='admin'){
+        const v=parse(newRaw,{});
+        const r=await client.from('app_settings').upsert({setting_key:'system_branding',setting_value:v,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'setting_key'});
+        if(r.error)throw r.error;
       }else if(k===K.L){
         const seen=new Set(old.map(x=>String(x.timestamp)+'|'+String(x.text)));
         for(const x of a.filter(x=>!seen.has(String(x.timestamp)+'|'+String(x.text)))){const r=await client.from('activity_logs').insert({actor_id:user.id,event_text:String(x.text||'Activity')});if(r.error)throw r.error}
