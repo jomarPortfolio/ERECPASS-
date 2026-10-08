@@ -7,7 +7,6 @@ async function getAdminClient(){
 
   const au=await client.auth.getUser();
   if(au.error) throw au.error;
-
   const user=au.data?.user;
   if(!user?.id) throw new Error('Admin login session has expired. Please log in again.');
 
@@ -15,13 +14,10 @@ async function getAdminClient(){
     .select('id,role,active')
     .eq('id',user.id)
     .maybeSingle();
-
   if(pr.error) throw pr.error;
-
   if(pr.data?.role!=='admin' || pr.data?.active!==true || String(user.email||'').toLowerCase()!=='admin2@gmail.com'){
     throw new Error('Please use the active admin2@gmail.com account.');
   }
-
   return client;
 }
 
@@ -30,29 +26,24 @@ window.updateApptStatus=async function(id,status){
   if(status!=='Approved' && status!=='Cancelled') return;
 
   const label=status==='Approved'?'approve':'cancel';
-
   if(status==='Cancelled' && !window.confirm('Cancel this appointment?\\nYou can’t undo this action.')) return;
 
   try{
     const client=await getAdminClient();
+    const appointmentId=String(id).trim();
+    if(!/^\\d+$/.test(appointmentId)) throw new Error('Invalid appointment ID. Please refresh the appointment list.');
 
-    // Appointment-only Supabase RPC. This avoids the old UPDATE/RETURNING
-    // RLS mismatch while leaving every other app function unchanged.
-    const result=await client.rpc('admin_update_appointment_status',{
-      p_appointment_id:Number(id),
-      p_status:status
-    });
+    // Use the existing appointments RLS UPDATE policy directly.
+    // Count confirms the exact row was changed without relying on UPDATE ... RETURNING,
+    // which caused the previous false "not updated/not found" behavior.
+    const result=await client.from('appointments')
+      .update({status:status,updated_at:new Date().toISOString()},{count:'exact'})
+      .eq('id',appointmentId);
 
     if(result.error) throw result.error;
-    if(!result.data) throw new Error('Appointment was not updated. Please try again.');
+    if(result.count!==1) throw new Error('Appointment '+appointmentId+' was not found or could not be updated. Please refresh the appointment list.');
 
-    if(typeof window.renderAdminAppointmentsList==='function'){
-      await window.renderAdminAppointmentsList();
-    }
-
-    if(typeof window.renderPatientAppointments==='function' && window.currentSession?.role==='patient'){
-      await window.renderPatientAppointments();
-    }
+    if(typeof window.renderAdminAppointmentsList==='function') await window.renderAdminAppointmentsList();
   }catch(e){
     console.error('[ERecPass] Admin appointment '+label+' failed:',e);
     alert('Could not '+label+' appointment: '+(e?.message||'Please try again.'));
