@@ -3373,7 +3373,7 @@ renderPatientDoctors();
 
 generatePatientQR();
 
-renderPatientChatMessages();
+window.renderPatientChatMessages?.();
 
 }
 
@@ -7649,7 +7649,7 @@ setTimeout(installAddedUI,2500);
           const saved=window.sessionStorage?.getItem('erecpassSelectedChatPatient');
           if(saved) await window.selectAdminChatPatient(saved);
         } else if(currentSession.role==='patient'){
-          await window.renderPatientChatMessages();
+          await window.window.renderPatientChatMessages?.();
         }
       } catch(e) {
         console.error('[ERecPass] Chat boot failed:',e);
