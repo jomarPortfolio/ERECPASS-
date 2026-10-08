@@ -7738,5 +7738,55 @@ setTimeout(installAddedUI,2500);
 })();
 </script>
 
+
+<!-- ERECPASS FINAL ADMIN APPOINTMENT ACTION FIX -->
+<script>
+(function(){
+'use strict';
+async function adminApptAction(id,status){
+ try{
+  const client=window.erecpassSupabase;
+  if(!client?.auth)throw new Error('Supabase is not ready. Please refresh the app.');
+  if(id===undefined||id===null||String(id)==='')throw new Error('Appointment ID is missing.');
+  if(status!=='Approved'&&status!=='Cancelled')throw new Error('Invalid appointment status.');
+  const {data:{user},error:authError}=await client.auth.getUser();
+  if(authError)throw authError;
+  if(!user?.id)throw new Error('Admin login session expired. Please log in again.');
+  const {data:profile,error:profileError}=await client.from('profiles').select('id,role,active').eq('id',user.id).maybeSingle();
+  if(profileError)throw profileError;
+  if(profile?.role!=='admin'||profile?.active!==true)throw new Error('This account is not an active Admin account.');
+  const {data:updated,error:updateError}=await client.from('appointments').update({status:status,updated_at:new Date().toISOString()}).eq('id',String(id)).select('id,status,updated_at').maybeSingle();
+  if(updateError)throw updateError;
+  if(!updated)throw new Error('No appointment was updated. Please refresh the list and try again.');
+  await window.renderAdminAppointmentsList();
+ }catch(e){console.error('[ERecPass] Admin appointment action failed:',e);alert('Could not update appointment: '+(e?.message||'Please try again.'));}
+}
+window.updateApptStatus=adminApptAction;
+window.renderAdminAppointmentsList=async function(){
+ const container=document.getElementById('adminAppointmentsList');if(!container)return;
+ container.innerHTML='<p class="text-xs text-slate-400 p-2">Loading appointments...</p>';
+ try{
+  const client=window.erecpassSupabase;if(!client)throw new Error('Supabase is not ready.');
+  const {data,error}=await client.from('appointments').select('id,patient_id,patient_name,doctor,appointment_date,reason,status,updated_at').order('appointment_date',{ascending:true});
+  if(error)throw error;const appts=data||[];
+  if(!appts.length){container.innerHTML='<p class="text-xs text-slate-400 p-2">No appointments found.</p>';return;}
+  container.innerHTML=appts.map(function(a){
+   const status=a.status||'Pending Approval',id=String(a.id),final=status==='Approved'||status==='Cancelled';
+   return '<div class="glass-card p-3 rounded-xl flex justify-between items-center text-xs"><div><strong class="text-white block">'+(a.patient_name||'Patient')+' - '+(a.reason||'Appointment')+'</strong><p class="text-slate-400">Doctor: '+(a.doctor||'—')+' · Date: '+(a.appointment_date||'—')+'</p><span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-slate-900/70 text-cyan-300 text-[9px] font-tech">'+status+'</span></div><div class="flex gap-1 flex-wrap justify-end"><button type="button" data-erecpass-appt-action="approve" data-appt-id="'+id+'" '+(final?'disabled':'')+' class="px-2 py-1 bg-emerald-950 text-emerald-300 rounded font-tech text-[10px] '+(final?'opacity-40 cursor-not-allowed':'')+'">Approve</button><button type="button" data-erecpass-appt-action="cancel" data-appt-id="'+id+'" '+(final?'disabled':'')+' class="px-2 py-1 bg-rose-950 text-rose-300 rounded font-tech text-[10px] '+(final?'opacity-40 cursor-not-allowed':'')+'">Cancel</button><button type="button" data-erecpass-appt-delete="'+id+'" class="px-2 py-1 bg-slate-800 text-slate-300 rounded font-tech text-[10px]">Delete</button></div></div>';
+  }).join('');
+ }catch(e){console.error('[ERecPass] Admin appointments:',e);container.innerHTML='<p class="text-xs text-rose-300 p-2">Unable to load appointments. Please refresh.</p>';}
+};
+document.addEventListener('click',function(ev){
+ const btn=ev.target?.closest?.('[data-erecpass-appt-action]');if(!btn)return;
+ ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();if(btn.disabled)return;
+ adminApptAction(btn.getAttribute('data-appt-id'),btn.getAttribute('data-erecpass-appt-action')==='approve'?'Approved':'Cancelled');
+},true);
+document.addEventListener('click',function(ev){
+ const btn=ev.target?.closest?.('[data-erecpass-appt-delete]');if(!btn)return;
+ ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();
+ if(typeof window.deleteAppt==='function')window.deleteAppt(btn.getAttribute('data-erecpass-appt-delete'));
+},true);
+})();
+</script>
 </body>
 </html>
