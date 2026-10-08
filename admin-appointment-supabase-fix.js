@@ -21,9 +21,11 @@ window.updateApptStatus=async function(id,status){
   if(status==='Cancelled' && !window.confirm('Cancel this appointment?\\nYou can’t undo this action.')) return;
   try{
     const client=await getAdminClient();
-    const result=await client.from('appointments').update({status:status,updated_at:new Date().toISOString()}).eq('id',String(id)).select('id,status,updated_at').maybeSingle();
+    const result=await client.from('appointments').update({status:status,updated_at:new Date().toISOString()}).eq('id',String(id));
     if(result.error) throw result.error;
-    if(!result.data) throw new Error('Appointment was not updated. Please refresh the list and try again.');
+    const verify=await client.from('appointments').select('id,status').eq('id',String(id)).maybeSingle();
+    if(verify.error) throw verify.error;
+    if(!verify.data || verify.data.status!==status) throw new Error('Appointment was not updated. Please refresh the list and try again.');
     if(typeof window.renderAdminAppointmentsList==='function') await window.renderAdminAppointmentsList();
     if(typeof window.renderPatientAppointments==='function' && window.currentSession?.role==='patient') await window.renderPatientAppointments();
   }catch(e){
