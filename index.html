@@ -3825,108 +3825,21 @@ alert("Appointment submitted to admin for approval.");
 
 }
 
-/* Patient Chat */
-
+/* Patient Chat - Supabase is the single source of truth. */
 function renderPatientChatMessages() {
-
-const chats = JSON.parse(epStore.getItem(DB_KEYS.CHATS)) || [];
-
-const myChats = chats.filter(c => c.patientId === currentSession.data.id);
-
-const box = document.getElementById('patientChatBox');
-
-box.innerHTML = "";
-
-myChats.forEach(m => {
-
-const isMe = m.sender === 'patient';
-
-box.innerHTML += `
-
-<div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
-
-<div class="${isMe ? 'bg-cyan-500 text-slate-950 font-semibold' : 'bot-message text-slate-200'} p-2 rounded-xl max-w-[80%]">
-
-<p>${m.text}</p>
-
-${m.file ? `<img src="${m.file}" class="w-full max-h-32 object-cover rounded mt-1">` : ''}
-
-</div>
-
-<span class="text-[9px] text-slate-500 mt-0.5">${m.timestamp}</span>
-
-</div>
-
-`;
-
-});
-
+  if (typeof window.renderPatientChatMessages === 'function' && window.erecpassSupabase) {
+    return window.renderPatientChatMessages();
+  }
 }
-
 function sendPatientMessage() {
-
-const txt = document.getElementById('patientChatInput').value;
-
-if (!txt) return;
-
-const chats = JSON.parse(epStore.getItem(DB_KEYS.CHATS)) || [];
-
-chats.push({
-
-patientId: currentSession.data.id,
-
-sender: 'patient',
-
-text: txt,
-
-file: "",
-
-timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
-});
-
-epStore.setItem(DB_KEYS.CHATS, JSON.stringify(chats));
-
-document.getElementById('patientChatInput').value = "";
-
-renderPatientChatMessages();
-
+  if (typeof window.sendPatientMessage === 'function' && window.erecpassSupabase) {
+    return window.sendPatientMessage();
+  }
 }
-
 function sendPatientChatFile(e) {
-
-const file = e.target.files[0];
-
-if (!file) return;
-
-const reader = new FileReader();
-
-reader.onload = function(evt) {
-
-const chats = JSON.parse(epStore.getItem(DB_KEYS.CHATS)) || [];
-
-chats.push({
-
-patientId: currentSession.data.id,
-
-sender: 'patient',
-
-text: "[File / Photo Attached]",
-
-file: evt.target.result,
-
-timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
-});
-
-epStore.setItem(DB_KEYS.CHATS, JSON.stringify(chats));
-
-renderPatientChatMessages();
-
-};
-
-reader.readAsDataURL(file);
-
+  if (typeof window.sendPatientChatFile === 'function' && window.erecpassSupabase) {
+    return window.sendPatientChatFile(e);
+  }
 }
 
 /* Emergency Hold Button 3s behavior */
