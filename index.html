@@ -7840,6 +7840,94 @@ setTimeout(installAddedUI,2500);
   };
   window.sendPatientChatFile=()=>alert('Text messaging is ready.');
 
+  async function renderStaffAdminChat(){
+    if(currentSession?.role!=='staff'||!S()) return;
+    const box=document.getElementById('staffAdminChatBox');
+    if(!box) return;
+    try{
+      const uid=await ensureAuthUserId();
+      const x=await getMessages(uid);
+      box.innerHTML=x.messages.length ? x.messages.map(m=>{
+        const mine=m.sender_id===uid;
+        return '<div class="flex flex-col '+(mine?'items-end':'items-start')+' gap-0.5" data-staff-message-id="'+esc(m.id)+'">'+
+          '<span class="text-[9px] font-bold '+(mine?'text-cyan-300':'text-rose-300')+'">'+(mine?'STAFF':'ADMIN')+'</span>'+
+          '<div class="staff-chat-bubble '+(mine?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words" data-message-id="'+esc(m.id)+'">'+esc(m.body)+'</div>'+
+          '<span class="text-[9px] text-slate-500">'+stamp(m.created_at)+'</span>'+
+          '<button type="button" class="staff-chat-delete hidden text-[9px] text-rose-300 border border-rose-500/30 px-2 py-1 rounded-lg" data-delete-staff-message="'+esc(m.id)+'">Delete</button>'+
+        '</div>';
+      }).join('') : '<div class="text-center text-[10px] text-slate-500 py-8">No messages yet. Send a message to admin2@gmail.com.</div>';
+      box.scrollTop=box.scrollHeight;
+      subscribe(x.conversation.id);
+    }catch(e){ console.error('[ERecPass] Staff admin chat load failed:',e); }
+  }
+
+  window.renderStaffAdminChat=renderStaffAdminChat;
+
+  window.sendStaffAdminMessage=async function(){
+    const input=document.getElementById('staffAdminChatInput');
+    const body=(input?.value||'').trim();
+    if(!body) return;
+    const button=input?.parentElement?.querySelector('button');
+    try{
+      if(button) button.disabled=true;
+      const uid=await ensureAuthUserId();
+      const c=await getConversation(uid);
+      const r=await S().from('message_messages').insert({
+        conversation_id:c.id,
+        sender_id:uid,
+        body:body
+      }).select('id,conversation_id,sender_id,body,created_at,read_at').single();
+      if(r.error) throw r.error;
+      const cr=await S().from('message_conversations').update({
+        status:'Open',
+        updated_at:new Date().toISOString()
+      }).eq('id',c.id);
+      if(cr.error) throw cr.error;
+      if(input) input.value='';
+      await renderStaffAdminChat();
+    }catch(e){
+      console.error('[ERecPass] Staff admin chat send failed:',e);
+      alert('Hindi naipadala ang message sa admin. '+(e?.message||'Pakisubukan ulit.'));
+    }finally{
+      if(button) button.disabled=false;
+    }
+  };
+
+  // Staff-only long press: hold a message for about 1 second to reveal
+  // Delete. This is scoped to the Staff -> Admin chat only.
+  document.addEventListener('pointerdown',function(ev){
+    const bubble=ev.target?.closest?.('#staffAdminChatBox .staff-chat-bubble');
+    if(!bubble) return;
+    const wrap=bubble.closest('[data-staff-message-id]');
+    const del=wrap?.querySelector('.staff-chat-delete');
+    if(!wrap||!del) return;
+    let timer=setTimeout(()=>{
+      del.classList.remove('hidden');
+      bubble.classList.add('ring-2','ring-rose-400');
+    },1000);
+    const clear=()=>{clearTimeout(timer);document.removeEventListener('pointerup',clear,true);document.removeEventListener('pointercancel',clear,true);};
+    document.addEventListener('pointerup',clear,true);
+    document.addEventListener('pointercancel',clear,true);
+  },true);
+
+  document.addEventListener('click',async function(ev){
+    const btn=ev.target?.closest?.('[data-delete-staff-message]');
+    if(!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const id=btn.getAttribute('data-delete-staff-message');
+    try{
+      const uid=await ensureAuthUserId();
+      const r=await S().from('message_messages').delete().eq('id',id).eq('sender_id',uid).select('id');
+      if(r.error) throw r.error;
+      if(!r.data?.length) throw new Error('Message was not deleted.');
+      await renderStaffAdminChat();
+    }catch(e){
+      console.error('[ERecPass] Staff message delete failed:',e);
+      alert('Hindi ma-delete ang message. Pakisubukan ulit.');
+    }
+  },true);
+
   window.renderAdminPatientChatList=async function(){
   const box=document.getElementById('adminPatientChatList');
   if(!box||!window.erecpassSupabase||!['admin','staff'].includes(currentSession?.role)) return;
