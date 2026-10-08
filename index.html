@@ -7755,7 +7755,7 @@ async function adminApptAction(id,status){
   const {data:profile,error:profileError}=await client.from('profiles').select('id,role,active').eq('id',user.id).maybeSingle();
   if(profileError)throw profileError;
   if(profile?.role!=='admin'||profile?.active!==true)throw new Error('This account is not an active Admin account.');
-  const {data:updated,error:updateError}=await client.from('appointments').update({status:status,updated_at:new Date().toISOString()}).eq('id',String(id)).select('id,status,updated_at').maybeSingle();
+  const {data:updated,error:updateError}=await client.rpc('admin_update_appointment_status',{p_appointment_id:Number(id),p_status:status});
   if(updateError)throw updateError;
   if(!updated)throw new Error('No appointment was updated. Please refresh the list and try again.');
   await window.renderAdminAppointmentsList();
