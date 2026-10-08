@@ -3825,22 +3825,7 @@ alert("Appointment submitted to admin for approval.");
 
 }
 
-/* Patient Chat - Supabase is the single source of truth. */
-function renderPatientChatMessages() {
-  if (typeof window.renderPatientChatMessages === 'function' && window.erecpassSupabase) {
-    return window.renderPatientChatMessages();
-  }
-}
-function sendPatientMessage() {
-  if (typeof window.sendPatientMessage === 'function' && window.erecpassSupabase) {
-    return window.sendPatientMessage();
-  }
-}
-function sendPatientChatFile(e) {
-  if (typeof window.sendPatientChatFile === 'function' && window.erecpassSupabase) {
-    return window.sendPatientChatFile(e);
-  }
-}
+/* Patient Chat is Supabase-only. The messaging implementation is loaded below. */
 
 /* Emergency Hold Button 3s behavior */
 
@@ -7385,24 +7370,237 @@ setTimeout(installAddedUI,2500);
 <!-- ERECPASS: REAL ADMIN <-> PATIENT SUPABASE MESSAGING -->
 <script>
 (function(){
-const S=()=>window.erecpassSupabase,U=()=>{try{return currentSession?.data?.user_id||currentSession?.data?.id||null}catch(e){return null}},E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])),T=v=>{try{return new Date(v).toLocaleString([],{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};let pid=null,ch=null;
-async function conv(patient){const s=S();let r=await s.from('message_conversations').select('*').eq('patient_id',patient).order('created_at',{ascending:true}).limit(1).maybeSingle();if(r.error)throw r.error;if(r.data)return r.data;r=await s.from('message_conversations').insert({patient_id:patient,subject:'ERecPass Support',status:'Open'}).select('*').single();if(r.error)throw r.error;return r.data}
-async function msgs(patient){const c=await conv(patient),r=await S().from('message_messages').select('*').eq('conversation_id',c.id).order('created_at',{ascending:true});if(r.error)throw r.error;return {c,m:r.data||[]}}
-function messageBubble(m,me){const mine=m.sender_id===U();return '<div class="erecpass-chat-message-wrap '+(mine?'justify-end':'justify-start')+'" data-message-id="'+E(m.id)+'">'+(mine?'<button type="button" class="erecpass-delete-btn" title="Delete message" aria-label="Delete message" onclick="deleteErecpassMessage(\\''+E(m.id)+'\\'',this)"><i class="fa-solid fa-trash"></i></button>':'')+'<div class="flex flex-col '+(mine?'items-end':'items-start')+'"><div class="'+(me?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words">'+E(m.body)+'</div><span class="text-[9px] text-slate-500 mt-0.5">'+T(m.created_at)+'</span></div></div>'}
-function wireMessageLongPress(b){if(!b)return;b.querySelectorAll('.erecpass-chat-message-wrap').forEach(w=>{w.classList.remove('erecpass-delete-ready')})}
-function patientRender(a){const b=document.getElementById('patientChatBox');if(!b)return;b.innerHTML=a.length?a.map(m=>messageBubble(m,m.sender_id===U())).join(''):'<div class="text-center text-[10px] text-slate-500 py-8">No messages yet. Send a message to hospital admin.</div>';wireMessageLongPress(b);b.scrollTop=b.scrollHeight}
-function adminRender(a){const b=document.getElementById('adminChatMessagesBox');if(!b)return;b.innerHTML=a.length?a.map(m=>messageBubble(m,m.sender_id===U())).join(''):'<div class="text-center text-[10px] text-slate-500 py-8">No messages in this conversation yet.</div>';wireMessageLongPress(b);b.scrollTop=b.scrollHeight}
-window.deleteErecpassMessage=async function(id,btn){try{if(!id||!S()||!U())return;if(!confirm('Delete this message?'))return;const r=await S().from('message_messages').delete().eq('id',id).eq('sender_id',U());if(r.error)throw r.error;const wrap=btn?.closest('.erecpass-chat-message-wrap');if(wrap)wrap.remove();if(currentSession?.role==='patient')window.renderPatientChatMessages();else if(currentSession?.role==='admin'&&pid)window.renderAdminChatMessages();}catch(e){console.error(e);alert('Hindi ma-delete ang message. Pakisubukan ulit.')}};
+  'use strict';
 
-async function sub(id){if(!S())return;if(ch)await S().removeChannel(ch);ch=S().channel('erecpass-msg-'+id).on('postgres_changes',{event:'*',schema:'public',table:'message_messages',filter:'conversation_id=eq.'+id},async()=>{try{if(currentSession?.role==='patient'){let x=await msgs(U());patientRender(x.m)}else if(currentSession?.role==='admin'&&pid){let x=await msgs(pid);adminRender(x.m)}}catch(e){console.error(e)}}).subscribe()}
-window.renderPatientChatMessages=async()=>{if(currentSession?.role!=='patient'||!S())return;try{let x=await msgs(U());patientRender(x.m);sub(x.c.id)}catch(e){console.error(e)}};
-window.sendPatientMessage=async()=>{let i=document.getElementById('patientChatInput'),t=(i?.value||'').trim();if(!t)return;try{let c=await conv(U()),r=await S().from('message_messages').insert({conversation_id:c.id,sender_id:U(),body:t}).select('*').single();if(r.error)throw r.error;await S().from('message_conversations').update({status:'Open',updated_at:new Date().toISOString()}).eq('id',c.id);i.value='';window.renderPatientChatMessages()}catch(e){console.error(e);alert('Hindi naipadala ang message. Pakisubukan ulit.')}};
-window.sendPatientChatFile=()=>alert('Text messaging is ready.');
-window.renderAdminPatientChatList=async()=>{let b=document.getElementById('adminPatientChatList');if(!b||!S())return;let r=await S().from('patients').select('user_id,full_name,email,active').order('full_name');if(r.error)return console.error(r.error);b.innerHTML=(r.data||[]).filter(p=>p.user_id&&p.active!==false).map(p=>'<button type="button" onclick="selectAdminChatPatient(\''+p.user_id+'\')" class="w-full text-left p-2 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs flex justify-between items-center"><span><span class="text-white font-tech block">'+E(p.full_name||'Patient')+'</span><span class="text-[9px] text-slate-500">'+E(p.email||'')+'</span></span><span class="w-2 h-2 rounded-full bg-cyan-400"></span></button>').join('')||'<div class="text-xs text-slate-500 p-2">No active patients.</div>'};
-window.selectAdminChatPatient=async x=>{pid=x;try{window.sessionStorage?.setItem('erecpassSelectedChatPatient',x)}catch(_){}let p=(JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)||'[]')).find(z=>z.user_id===x);let h=document.getElementById('adminSelectedChatHeader');if(h)h.innerText='Chatting with: '+(p?.fullName||'Patient');try{let a=await msgs(x);adminRender(a.m);sub(a.c.id)}catch(e){console.error(e);alert('Hindi ma-load ang conversation.')}};
-window.renderAdminChatMessages=async()=>{if(pid)try{let a=await msgs(pid);adminRender(a.m)}catch(e){console.error(e)}};
-window.sendAdminChatMessage=async()=>{if(!pid)return alert('Please select a patient first.');let i=document.getElementById('adminChatInput'),t=(i?.value||'').trim();if(!t)return;try{let c=await conv(pid),r=await S().from('message_messages').insert({conversation_id:c.id,sender_id:U(),body:t}).select('*').single();if(r.error)throw r.error;await S().from('message_conversations').update({status:'Open',updated_at:new Date().toISOString()}).eq('id',c.id);i.value='';let a=await msgs(pid);adminRender(a.m);sub(a.c.id)}catch(e){console.error(e);alert('Hindi naipadala ang reply. Pakisubukan ulit.')}};
-const boot=()=>{let tries=0;const load=async()=>{tries++;try{if(!S()||!currentSession?.role){if(tries<24){setTimeout(load,500)}return}if(currentSession.role==='admin'){await window.renderAdminPatientChatList();const saved=window.sessionStorage?.getItem('erecpassSelectedChatPatient');if(saved)await window.selectAdminChatPatient(saved)}else if(currentSession.role==='patient'){await window.renderPatientChatMessages()} }catch(e){console.error('[ERecPass] Persistent chat load failed:',e);if(tries<24)setTimeout(load,500)}};setTimeout(load,300)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();window.addEventListener('erecpass:session-ready',boot);window.addEventListener('pageshow',boot);
+  const S = () => window.erecpassSupabase;
+  const currentUserId = () => {
+    try { return window.currentSession?.data?.user_id || null; } catch(e) { return null; }
+  };
+  const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const stamp = v => { try { return new Date(v).toLocaleString([],{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch(e){ return ''; } };
+
+  let selectedPatientId = null;
+  let realtimeChannel = null;
+  let renderToken = 0;
+
+  async function getConversation(patientId){
+    if(!S() || !patientId) throw new Error('Supabase chat is not ready.');
+    let r = await S().from('message_conversations')
+      .select('*').eq('patient_id',patientId).order('created_at',{ascending:true}).limit(1);
+    if(r.error) throw r.error;
+    if(r.data?.[0]) return r.data[0];
+
+    r = await S().from('message_conversations')
+      .insert({patient_id:patientId,subject:'ERecPass Support',status:'Open'})
+      .select('*').single();
+    if(r.error) {
+      if(String(r.error.code)==='23505') {
+        r = await S().from('message_conversations')
+          .select('*').eq('patient_id',patientId).order('created_at',{ascending:true}).limit(1);
+      }
+      if(r.error) throw r.error;
+    }
+    return r.data;
+  }
+
+  async function getMessages(patientId){
+    const conversation = await getConversation(patientId);
+    const r = await S().from('message_messages')
+      .select('id,conversation_id,sender_id,body,created_at,read_at')
+      .eq('conversation_id',conversation.id)
+      .order('created_at',{ascending:true});
+    if(r.error) throw r.error;
+    return {conversation,messages:r.data||[]};
+  }
+
+  function bubble(m){
+    const mine = m.sender_id === currentUserId();
+    return '<div class="erecpass-chat-message-wrap '+(mine?'justify-end':'justify-start')+'" data-message-id="'+esc(m.id)+'">'+
+      '<div class="flex flex-col '+(mine?'items-end':'items-start')+'">'+
+        '<div class="'+(mine?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words">'+esc(m.body)+'</div>'+
+        '<span class="text-[9px] text-slate-500 mt-0.5">'+stamp(m.created_at)+'</span>'+
+      '</div>'+
+      (mine?'<button type="button" class="erecpass-delete-btn" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>':'')+
+    '</div>';
+  }
+
+  function renderBox(id,messages){
+    const box=document.getElementById(id);
+    if(!box) return;
+    box.innerHTML=messages.length ? messages.map(bubble).join('') :
+      '<div class="text-center text-[10px] text-slate-500 py-8">No messages yet. Send a message to hospital admin.</div>';
+    box.scrollTop=box.scrollHeight;
+  }
+
+  async function renderPatient(){
+    if(currentSession?.role!=='patient'||!S()) return;
+    const token=++renderToken;
+    try {
+      const x=await getMessages(currentUserId());
+      if(token!==renderToken) return;
+      renderBox('patientChatBox',x.messages);
+      subscribe(x.conversation.id);
+    } catch(e){ console.error('[ERecPass] Patient chat load failed:',e); }
+  }
+
+  async function renderAdmin(){
+    if(!selectedPatientId||!S()) return;
+    const token=++renderToken;
+    try {
+      const x=await getMessages(selectedPatientId);
+      if(token!==renderToken) return;
+      renderBox('adminChatMessagesBox',x.messages);
+      subscribe(x.conversation.id);
+    } catch(e){ console.error('[ERecPass] Admin chat load failed:',e); }
+  }
+
+  function subscribe(conversationId){
+    if(!S()) return;
+    if(realtimeChannel) { try { S().removeChannel(realtimeChannel); } catch(e){} }
+    realtimeChannel=S().channel('erecpass-chat-'+conversationId)
+      .on('postgres_changes',{
+        event:'*',schema:'public',table:'message_messages',
+        filter:'conversation_id=eq.'+conversationId
+      },()=>{
+        if(currentSession?.role==='patient') renderPatient();
+        else if(currentSession?.role==='admin') renderAdmin();
+      })
+      .subscribe();
+  }
+
+  window.deleteErecpassMessage=async function(id,button){
+    const uid=currentUserId();
+    if(!id||!uid||!S()) return;
+    if(!confirm('Delete this message?')) return;
+    try {
+      const r=await S().from('message_messages').delete()
+        .eq('id',id).eq('sender_id',uid).select('id');
+      if(r.error) throw r.error;
+      if(!r.data?.length) throw new Error('Message was not deleted.');
+      const wrap=button?.closest('.erecpass-chat-message-wrap');
+      if(wrap) wrap.remove();
+      if(currentSession?.role==='patient') await renderPatient();
+      else if(currentSession?.role==='admin') await renderAdmin();
+    } catch(e) {
+      console.error('[ERecPass] Delete message failed:',e);
+      alert('Hindi ma-delete ang message. Pakisubukan ulit.');
+    }
+  };
+
+  document.addEventListener('click',function(ev){
+    const btn=ev.target?.closest?.('[data-delete-message]');
+    if(!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    window.deleteErecpassMessage(btn.getAttribute('data-delete-message'),btn);
+  },true);
+
+  window.renderPatientChatMessages=renderPatient;
+  window.sendPatientMessage=async function(){
+    const input=document.getElementById('patientChatInput');
+    const body=(input?.value||'').trim();
+    const uid=currentUserId();
+    if(!body||!uid||!S()) return;
+    try {
+      const c=await getConversation(uid);
+      const r=await S().from('message_messages').insert({
+        conversation_id:c.id,sender_id:uid,body
+      }).select('id,conversation_id,sender_id,body,created_at,read_at').single();
+      if(r.error) throw r.error;
+      await S().from('message_conversations').update({
+        status:'Open',updated_at:new Date().toISOString()
+      }).eq('id',c.id);
+      if(input) input.value='';
+      await renderPatient();
+    } catch(e) {
+      console.error('[ERecPass] Patient send failed:',e);
+      alert('Hindi naipadala ang message. Pakisubukan ulit.');
+    }
+  };
+  window.sendPatientChatFile=()=>alert('Text messaging is ready.');
+
+  window.renderAdminPatientChatList=async function(){
+    const box=document.getElementById('adminPatientChatList');
+    if(!box||!S()) return;
+    const r=await S().from('patients').select('user_id,full_name,email,active').order('full_name');
+    if(r.error){ console.error(r.error); return; }
+    box.innerHTML=(r.data||[]).filter(p=>p.user_id&&p.active!==false).map(p=>
+      '<button type="button" data-chat-patient="'+esc(p.user_id)+'" class="w-full text-left p-2 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs flex justify-between items-center">'+
+      '<span><span class="text-white font-tech block">'+esc(p.full_name||'Patient')+'</span><span class="text-[9px] text-slate-500">'+esc(p.email||'')+'</span></span><span class="w-2 h-2 rounded-full bg-cyan-400"></span></button>'
+    ).join('')||'<div class="text-xs text-slate-500 p-2">No active patients.</div>';
+  };
+
+  document.addEventListener('click',function(ev){
+    const btn=ev.target?.closest?.('[data-chat-patient]');
+    if(!btn) return;
+    ev.preventDefault();
+    window.selectAdminChatPatient(btn.getAttribute('data-chat-patient'));
+  },true);
+
+  window.selectAdminChatPatient=async function(patientId){
+    selectedPatientId=patientId;
+    renderToken++;
+    try { window.sessionStorage?.setItem('erecpassSelectedChatPatient',patientId); } catch(e){}
+    const header=document.getElementById('adminSelectedChatHeader');
+    if(header){
+      const p=(window.epPatients?.()||[]).find(x=>x.user_id===patientId);
+      header.innerText='Chatting with: '+(p?.fullName||p?.full_name||'Patient');
+    }
+    await renderAdmin();
+  };
+
+  window.renderAdminChatMessages=renderAdmin;
+  window.sendAdminChatMessage=async function(){
+    const uid=currentUserId();
+    const input=document.getElementById('adminChatInput');
+    const body=(input?.value||'').trim();
+    if(!selectedPatientId||!uid||!S()) return alert('Please select a patient first.');
+    if(!body) return;
+    try {
+      const c=await getConversation(selectedPatientId);
+      const r=await S().from('message_messages').insert({
+        conversation_id:c.id,sender_id:uid,body
+      }).select('id,conversation_id,sender_id,body,created_at,read_at').single();
+      if(r.error) throw r.error;
+      await S().from('message_conversations').update({
+        status:'Open',updated_at:new Date().toISOString()
+      }).eq('id',c.id);
+      if(input) input.value='';
+      await renderAdmin();
+    } catch(e) {
+      console.error('[ERecPass] Admin send failed:',e);
+      alert('Hindi naipadala ang reply. Pakisubukan ulit.');
+    }
+  };
+
+  function boot(){
+    let tries=0;
+    const load=async()=>{
+      tries++;
+      try {
+        if(!S()||!currentSession?.role){
+          if(tries<30) setTimeout(load,500);
+          return;
+        }
+        if(currentSession.role==='admin'){
+          await window.renderAdminPatientChatList();
+          const saved=window.sessionStorage?.getItem('erecpassSelectedChatPatient');
+          if(saved) await window.selectAdminChatPatient(saved);
+        } else if(currentSession.role==='patient'){
+          await window.renderPatientChatMessages();
+        }
+      } catch(e) {
+        console.error('[ERecPass] Chat boot failed:',e);
+        if(tries<30) setTimeout(load,500);
+      }
+    };
+    setTimeout(load,300);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+  window.addEventListener('erecpass:session-ready',boot);
+  window.addEventListener('pageshow',boot);
 })();
 </script>
 </body>
