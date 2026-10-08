@@ -4173,8 +4173,33 @@ ADMIN PORTAL FEATURES
 
 ========================================================================== */
 
-function refreshAdminPortal() {
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
+async function refreshAdminPortal() {
+let patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
+
+// Admin must always rebuild the Patient List from Supabase so every patient
+// remains visible even when the local cache is empty/stale after login.
+try {
+  const client = window.erecpassSupabase;
+  const adminUser = currentSession?.data?.email;
+  if (client && String(adminUser || '').trim().toLowerCase() === 'admin2@gmail.com') {
+    const cloud = await client.from('patients').select('*').order('created_at', { ascending: true });
+    if (!cloud.error && Array.isArray(cloud.data)) {
+      patients = cloud.data.map(p => ({
+        id: p.id, user_id: p.user_id, fullName: p.full_name || p.name || '',
+        email: p.email || '', sim: p.sim || '', photo: p.photo || '',
+        ageCategory: p.age_category || '', guardianNum: p.guardian_num || '',
+        status: p.status || 'Green', labResults: p.lab_results || [],
+        prescriptions: p.prescriptions || [], doctorNotes: p.doctor_notes || '',
+        online: !!p.online, active: p.active !== false
+      }));
+      epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
+    } else if (cloud.error) {
+      console.warn('[ERecPass] Admin Patient List cloud load:', cloud.error);
+    }
+  }
+} catch (e) {
+  console.warn('[ERecPass] Admin Patient List refresh:', e);
+}
 
 document.getElementById('adminTotalPatients').innerText = patients.length;
 
