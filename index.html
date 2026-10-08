@@ -7671,11 +7671,13 @@ setTimeout(installAddedUI,2500);
     const cards=[];
     for(const conv of (r.data||[])){
       const p=info[conv.patient_id];
-      if(!p || p.active===false) continue;
+      // Keep existing chat history visible even if the patient record is inactive.
+      if(!p) continue;
       const m=await S().from('message_messages').select('body,created_at').eq('conversation_id',conv.id).order('created_at',{ascending:false}).limit(1);
       const last=m.data?.[0];
+      const inactiveLabel=p.active===false ? ' · Inactive' : '';
       cards.push('<button type="button" data-chat-patient="'+esc(p.user_id)+'" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1">'+
-        '<span class="text-white font-tech block">'+esc(p.full_name||'Patient')+'</span>'+
+        '<span class="text-white font-tech block">'+esc(p.full_name||'Patient')+esc(inactiveLabel)+'</span>'+
         '<span class="text-[9px] text-cyan-300 block">'+esc(p.email||'No email')+'</span>'+
         '<span class="text-[10px] text-slate-400 block truncate">'+esc(last?.body||'No messages yet')+'</span>'+
         '<span class="text-[8px] text-slate-500">'+stamp(last?.created_at||conv.updated_at)+'</span></button>');
