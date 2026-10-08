@@ -7430,25 +7430,25 @@ setTimeout(installAddedUI,2500);
     return {conversation,messages:r.data||[]};
   }
 
-  function bubble(m){
-    const mine = m.sender_id === currentUserId();
-    const senderLabel = mine
-      ? (currentSession?.role==='patient' ? 'YOU' : currentSession?.role==='staff' ? 'STAFF · YOU' : 'ADMIN · YOU')
-      : (currentSession?.role==='patient' ? 'HOSPITAL STAFF' : 'PATIENT');
-    return '<div class="erecpass-chat-message-wrap '+(mine?'justify-end':'justify-start')+'" data-message-id="'+esc(m.id)+'">'+
-      '<div class="flex flex-col '+(mine?'items-end':'items-start')+'">'+
-        '<span class="text-[9px] font-bold text-cyan-300 mb-0.5">'+esc(senderLabel)+'</span>'+
-        '<div class="'+(mine?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words">'+esc(m.body)+'</div>'+
-        '<span class="text-[9px] text-slate-500 mt-0.5">'+stamp(m.created_at)+'</span>'+
-      '</div>'+
-      (mine?'<button type="button" class="erecpass-delete-btn" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>':'')+
-    '</div>';
-  }
+  function bubble(m, viewPatientId){
+    const me=currentUserId();
+    const isPatientMessage = viewPatientId ? m.sender_id === viewPatientId : m.sender_id === me;
+    const isMine = m.sender_id === me;
+    const isStaffView = ['admin','staff'].includes(currentSession?.role);
+    const canDelete = isMine || isStaffView;
+    const sideRight = isPatientMessage;
+    const senderLabel = isPatientMessage
+      ? (isMine ? 'YOU' : 'PATIENT')
+      : (isMine ? (currentSession?.role==='staff' ? 'STAFF' : 'ADMIN') : 'HOSPITAL STAFF');
+    return '<div class="erecpass-chat-message-wrap '+(sideRight?'justify-end':'justify-start')+' items-center gap-1" data-message-id="'+esc(m.id)+'">'+
+      (canDelete && !sideRight ? '<button type="button" class="erecpass-delete-btn order-first" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>' : '')+
+      '<div class="flex flex-col '+(sideRight?'items-end':'items-start')+'">'+
+        '<span class="text-[9px] font-bold text-cyan-300 mb-0.5">'+esc(senderLabel)+'</span>'+\n        '<div class="'+(sideRight?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words">'+esc(m.body)+'</div>'+\n        '<span class="text-[9px] text-slate-500 mt-0.5">'+stamp(m.created_at)+'</span>'+\n      '</div>'+\n      (canDelete && sideRight ? '<button type="button" class="erecpass-delete-btn" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>' : '')+\n    '</div>';\n  }
 
-  function renderBox(id,messages){
+  function renderBox(id,messages,viewPatientId){
     const box=document.getElementById(id);
     if(!box) return;
-    box.innerHTML=messages.length ? messages.map(bubble).join('') :
+    box.innerHTML=messages.length ? messages.map(m=>bubble(m,viewPatientId)).join('') :
       '<div class="text-center text-[10px] text-slate-500 py-8">No messages yet. Send a message to hospital admin.</div>';
     box.scrollTop=box.scrollHeight;
   }
@@ -7460,7 +7460,7 @@ setTimeout(installAddedUI,2500);
       const uid=await ensureAuthUserId();
       const x=await getMessages(uid);
       if(token!==renderToken) return;
-      renderBox('patientChatBox',x.messages);
+      renderBox('patientChatBox',x.messages,uid);
       subscribe(x.conversation.id);
     } catch(e){ console.error('[ERecPass] Patient chat load failed:',e); }
   }
@@ -7471,7 +7471,7 @@ setTimeout(installAddedUI,2500);
     try {
       const x=await getMessages(selectedPatientId);
       if(token!==renderToken) return;
-      renderBox('adminChatMessagesBox',x.messages);
+      renderBox('adminChatMessagesBox',x.messages,selectedPatientId);
       subscribe(x.conversation.id);
     } catch(e){ console.error('[ERecPass] Admin chat load failed:',e); }
   }
@@ -7495,8 +7495,9 @@ setTimeout(installAddedUI,2500);
     if(!id||!uid||!S()) return;
     if(!confirm('Delete this message?')) return;
     try {
-      const r=await S().from('message_messages').delete()
-        .eq('id',id).eq('sender_id',uid).select('id');
+      let delQuery=S().from('message_messages').delete().eq('id',id);
+      if(currentSession?.role==='patient') delQuery=delQuery.eq('sender_id',uid);
+      const r=await delQuery.select('id');
       if(r.error) throw r.error;
       if(!r.data?.length) throw new Error('Message was not deleted.');
       const wrap=button?.closest('.erecpass-chat-message-wrap');
