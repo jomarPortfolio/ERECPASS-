@@ -4844,8 +4844,8 @@ try {
           <span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-slate-900/70 text-cyan-300 text-[9px] font-tech">${status}</span>
         </div>
         <div class="flex gap-1 flex-wrap justify-end">
-          ${status !== 'Approved' && status !== 'Cancelled' ? '<button onclick="updateApptStatus(\''+a.id+'\',\'Approved\')" class="px-2 py-1 bg-emerald-950 text-emerald-300 rounded font-tech text-[10px]">Approve</button>' : ''}
-          ${status !== 'Cancelled' ? '<button onclick="updateApptStatus(\''+a.id+'\',\'Cancelled\')" class="px-2 py-1 bg-rose-950 text-rose-300 rounded font-tech text-[10px]">Cancel</button>' : ''}
+          ${status !== 'Approved' && status !== 'Cancelled' ? '<button onclick="window.erecpassAdminAppointmentAction(\''+a.id+'\',\'Approved\')" class="px-2 py-1 bg-emerald-950 text-emerald-300 rounded font-tech text-[10px]">Approve</button>' : ''}
+          ${status !== 'Cancelled' ? '<button onclick="window.erecpassAdminAppointmentAction(\''+a.id+'\',\'Cancelled\')" class="px-2 py-1 bg-rose-950 text-rose-300 rounded font-tech text-[10px]">Cancel</button>' : ''}
           <button onclick="deleteAppt(\''+a.id+'\')" class="px-2 py-1 bg-slate-800 text-slate-300 rounded font-tech text-[10px]">Delete</button>
         </div>
       </div>`;
@@ -8237,7 +8237,7 @@ setTimeout(()=>{if(currentSession?.role==='staff') renderStaffAdminChat();},1000
 </script>
 <!-- END ERECPASS PATIENT PROFILE FINAL RESTORE -->
 <!-- ERECPASS SUPABASE ADMIN APPOINTMENT ACTIONS -->
-<script src="./admin-appointment-supabase-fix.js?v=5994e21"></script>
+<script src="./admin-appointment-supabase-fix.js?v=f05a40"></script>
 </body>
 </html>
 <!-- ERECPASS SUPABASE ADMIN CHAT REPLY OVERRIDE -->
