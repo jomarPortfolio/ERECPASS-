@@ -7901,6 +7901,25 @@ document.addEventListener('click',function(ev){
 },true);
 })();
 </script>
+<!-- ERECPASS GLOBAL AUTH USER HELPER: fixes chat scope without changing UI -->
+<script>
+(function(){
+'use strict';
+if(typeof window.ensureAuthUserId !== 'function'){
+  window.ensureAuthUserId = async function(){
+    const client = window.erecpassSupabase;
+    if(!client?.auth) throw new Error('Supabase authentication is not ready. Please refresh the app.');
+    const result = await client.auth.getUser();
+    if(result.error) throw result.error;
+    const user = result?.data?.user;
+    if(!user?.id) throw new Error('Your login session expired. Please log in again.');
+    window.erecpassAuthUserId = user.id;
+    return user.id;
+  };
+}
+})();
+</script>
+
 <!-- STAFF ADMIN CHAT: additive only -->
 <style id="staff-admin-chat-style">
 #staffAdminChatBox .erecpass-chat-message-wrap{margin-bottom:.35rem}
