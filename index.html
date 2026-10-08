@@ -3496,7 +3496,14 @@ try {
     return;
   }
 
-  container.innerHTML = myAppts.map(a => `
+  container.innerHTML = myAppts.map(a => {
+    const appointmentStatus = a.status || 'Pending Approval';
+    const statusClass = appointmentStatus === 'Approved'
+      ? 'bg-emerald-200 border-emerald-500 text-emerald-900'
+      : appointmentStatus === 'Cancelled'
+        ? 'bg-rose-200 border-rose-500 text-rose-900'
+        : 'bg-cyan-950/80 border-cyan-400/40 text-cyan-300';
+    return `
     <div class="list-card p-3.5 rounded-xl flex items-center justify-between gap-3">
       <div class="min-w-0 flex-1">
         <strong class="text-white text-xs block">${a.reason || 'Appointment'}</strong>
@@ -3504,7 +3511,7 @@ try {
         <p class="text-[11px] text-cyan-400 mt-0.5"><i class="fa-regular fa-clock mr-1"></i>${a.appointment_date || ''}</p>
       </div>
       <div class="flex flex-col items-end gap-1.5 shrink-0">
-        <span class="px-2.5 py-1 bg-cyan-950/80 border border-cyan-400/40 text-cyan-300 rounded-full text-[10px] font-tech font-bold">${a.status || 'Pending Approval'}</span>
+        <span class="px-2.5 py-1 ${statusClass} rounded-full text-[10px] font-tech font-bold">${appointmentStatus}</span>
         <button type="button"
           class="px-2.5 py-1 bg-rose-950/80 border border-rose-400/40 text-rose-300 rounded-lg font-tech text-[10px] font-bold hover:bg-rose-900/80"
           onclick="deletePatientAppointment('${a.id}')">
@@ -3512,7 +3519,8 @@ try {
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 } catch (e) {
   console.error('[ERecPass] Patient appointments:', e);
   container.innerHTML = '<p class="text-xs text-rose-300 p-2">Unable to load appointments. Please refresh.</p>';
