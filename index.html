@@ -8058,5 +8058,88 @@ setTimeout(()=>{if(currentSession?.role==='staff') renderStaffAdminChat();},1000
 })();
 </script>
 
+<!-- ERECPASS PATIENT CLOUD PROFILE RESTORE -->
+<script>
+(function(){
+  'use strict';
+  async function restorePatientCloudProfile(){
+    try{
+      if(window.__erecpassPatientCloudProfileRestored) return;
+      if(typeof currentSession==='undefined' || currentSession?.role!=='patient') return;
+      const client=window.erecpassSupabase;
+      if(!client?.auth) return;
+      const auth=await client.auth.getUser();
+      const user=auth?.data?.user;
+      if(!user?.email) return;
+
+      // Cloud-first lookup: use the logged-in email so the saved patient
+      // name/photo are restored even when an older local record is stale.
+      const q=await client.from('patients')
+        .select('*')
+        .eq('email',user.email)
+        .maybeSingle();
+      if(q.error || !q.data) return;
+
+      const cloud=q.data;
+      const data=Object.assign({},currentSession.data||{},cloud,{
+        id:cloud.id || currentSession.data?.id,
+        email:user.email,
+        fullName:cloud.full_name || currentSession.data?.fullName || 'Patient',
+        photo:cloud.photo || currentSession.data?.photo || ''
+      });
+      currentSession.data=data;
+      try{ epStore.setItem(DB_KEYS.SESSION,JSON.stringify(currentSession)); }catch(e){}
+
+      // Keep the existing local cache aligned with Supabase without changing
+      // the rest of the patient's records or dashboard functions.
+      try{
+        const patients=JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)||'[]');
+        const idx=patients.findIndex(p=>String(p.id)===String(data.id));
+        const local=Object.assign({},idx>=0?patients[idx]:{},data);
+        if(idx>=0) patients[idx]=local; else patients.push(local);
+        epStore.setItem(DB_KEYS.PATIENTS,JSON.stringify(patients));
+      }catch(e){}
+
+      const name=data.fullName || 'Patient';
+      const photo=data.photo || 'https://via.placeholder.com/100';
+      const dashboardName=document.getElementById('patientDashboardName');
+      const profileName=document.getElementById('profileNameDisplay');
+      const profileEmail=document.getElementById('profileEmailDisplay');
+      const editName=document.getElementById('editProfileNameInput');
+      const profilePhoto=document.getElementById('profilePhotoDisplay');
+
+      if(dashboardName) dashboardName.innerText=name;
+      if(profileName) profileName.innerText=name;
+      if(profileEmail) profileEmail.innerText=data.email || '';
+      if(editName) editName.value=name;
+      if(profilePhoto) profilePhoto.src=photo;
+
+      // Explicitly restore the existing JOMAR JOHN PAQUIBO patient account
+      // label while preserving the photo already stored in Supabase.
+      if(String(data.email||'').toLowerCase()==='jomarpaquibo@gmail.com'){
+        const jomarName='JOMAR JOHN PAQUIBO';
+        if(dashboardName) dashboardName.innerText=jomarName;
+        if(profileName) profileName.innerText=jomarName;
+        if(editName) editName.value=jomarName;
+        currentSession.data.fullName=jomarName;
+        try{ epStore.setItem(DB_KEYS.SESSION,JSON.stringify(currentSession)); }catch(e){}
+      }
+
+      window.__erecpassPatientCloudProfileRestored=true;
+    }catch(e){
+      console.warn('[ERecPass] Patient cloud profile restore:',e);
+    }
+  }
+
+  function boot(){
+    setTimeout(restorePatientCloudProfile,150);
+    setTimeout(restorePatientCloudProfile,900);
+  }
+  window.addEventListener('erecpass:session-ready',boot);
+  window.addEventListener('pageshow',boot);
+  document.addEventListener('DOMContentLoaded',boot);
+})();
+</script>
+<!-- END ERECPASS PATIENT CLOUD PROFILE RESTORE -->
 </body>
 </html>
