@@ -7813,10 +7813,7 @@ document.addEventListener('click',function(ev){
       p_sim:null,
       p_photo:null,
       p_age_category:null,
-      p_guardian_num:field==='guardian_num'?clean:null,
-      p_lab_results:null,
-      p_prescriptions:null,
-      p_doctor_notes:null
+      p_guardian_num:field==='guardian_num'?clean:null
     };
     const {error}=await client.rpc('update_own_patient_profile',rpcPayload);
     if(error) throw error;
