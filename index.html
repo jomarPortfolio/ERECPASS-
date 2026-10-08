@@ -4896,10 +4896,13 @@ const container = document.getElementById('adminPatientChatList');
 if (!container) return;
 container.innerHTML = "";
 
-patients.filter(p => p && p.id && p.fullName).forEach(p => {
+patients.filter(p => p && p.id).forEach(p => {
+  // Support every existing patient-name field format without changing the DB.
+  const displayName = String(p.fullName || p.full_name || p.name || p.email || 'Patient').trim();
+  p.fullName = displayName;
   container.innerHTML += `
 <div onclick="selectAdminChatPatient('${p.id}')" class="p-2 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs flex justify-between items-center">
-<span class="text-white font-tech">${p.fullName}</span>
+<span class="text-white font-tech">${displayName}</span>
 <span class="w-2 h-2 rounded-full ${p.online ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
 </div>
 `;
