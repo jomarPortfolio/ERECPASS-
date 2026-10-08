@@ -4285,18 +4285,26 @@ function adminPatientEsc(value) {
 }
 
 function renderAdminPatients() {
-
-const search = document.getElementById('adminSearchPatient').value.toLowerCase();
-
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
-
+const searchEl = document.getElementById('adminSearchPatient');
 const container = document.getElementById('adminPatientsTableList');
-
-container.innerHTML = "";
-
-patients.filter(p => (p.fullName || "").toLowerCase().includes(search) || (p.id || "").toLowerCase().includes(search) || (p.status || "").toLowerCase().includes(search)).forEach(p => {
-
-container.innerHTML += `
+if (!container) return;
+const search = (searchEl?.value || "").toLowerCase();
+const localPatients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || '[]');
+function renderList(patients) {
+  container.innerHTML = "";
+  const filtered = (patients || []).filter(p =>
+    (p.fullName || "").toLowerCase().includes(search) ||
+    (p.id || "").toLowerCase().includes(search) ||
+    (p.status || "").toLowerCase().includes(search) ||
+    (p.email || "").toLowerCase().includes(search)
+  );
+  if (!filtered.length) {
+    container.innerHTML = '<div class="text-xs text-slate-400 p-3 text-center">No patients found.</div>';
+    return;
+  }
+  filtered.forEach(p => {
+    const safeId = String(p.id || "").replace(/'/g, "\\'");
+    container.innerHTML += `
 <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-cyan-500/20">
 <div>
 <div class="flex items-center gap-2">
@@ -4306,12 +4314,35 @@ container.innerHTML += `
 <p class="text-xs text-slate-400 mt-0.5">ID: ${p.id || ""} · Email: ${p.email || ""}</p>
 <p class="text-[11px] text-slate-400">Guardian Contact: ${p.guardianNum || 'None'}</p>
 </div>
-<button onclick="openAdminEditPatientModal('${p.id}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900 self-start sm:self-auto">Edit Patient File</button>
-</div>
-`;
-
-});
-
+<button onclick="openAdminEditPatientModal('${safeId}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900 self-start sm:self-auto">Edit Patient File</button>
+</div>`;
+  });
+}
+renderList(localPatients);
+const client = window.erecpassSupabase;
+if (!client || currentSession?.role !== 'admin') return;
+(async function syncAdminPatientsFromCloud() {
+  try {
+    const { data, error } = await client.from('patients')
+      .select('id,user_id,full_name,email,sim,photo,age_category,guardian_num,status,lab_results,prescriptions,doctor_notes,online,created_at,updated_at,active')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    const cloudPatients = (data || []).map(p => ({
+      id: p.id, userId: p.user_id || '', fullName: p.full_name || 'Unnamed Patient',
+      email: p.email || '', sim: p.sim || '', photo: p.photo || '',
+      ageCategory: p.age_category || '', guardianNum: p.guardian_num || '',
+      status: p.status || 'Green', labResults: p.lab_results || [],
+      prescriptions: p.prescriptions || [], doctorNotes: p.doctor_notes || '',
+      online: p.online === true, active: p.active !== false,
+      createdAt: p.created_at || '', updatedAt: p.updated_at || ''
+    }));
+    epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(cloudPatients));
+    renderList(cloudPatients);
+  } catch (e) {
+    console.error('[ERecPass] Admin patient cloud sync failed:', e);
+    renderList(localPatients);
+  }
+})();
 }
 
 function openAdminEditPatientModal(patientId) {
