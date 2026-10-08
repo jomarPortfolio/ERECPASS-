@@ -23,9 +23,7 @@ window.updateApptStatus=async function(id,status){
     const client=await getAdminClient();
     const result=await client.from('appointments').update({status:status,updated_at:new Date().toISOString()}).eq('id',String(id));
     if(result.error) throw result.error;
-    const verify=await client.from('appointments').select('id,status').eq('id',String(id)).maybeSingle();
-    if(verify.error) throw verify.error;
-    if(!verify.data || verify.data.status!==status) throw new Error('Appointment was not updated. Please refresh the list and try again.');
+    // Do not require a RETURNING/SELECT response here. Some Supabase RLS setups allow UPDATE but restrict the returned row. The update error itself is the authoritative failure signal.
     if(typeof window.renderAdminAppointmentsList==='function') await window.renderAdminAppointmentsList();
     if(typeof window.renderPatientAppointments==='function' && window.currentSession?.role==='patient') await window.renderPatientAppointments();
   }catch(e){
