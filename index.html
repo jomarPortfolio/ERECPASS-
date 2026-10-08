@@ -8093,16 +8093,43 @@ window.renderAdminPatientChatList=async function(){
 
   const client=window.erecpassSupabase;
   try{
-    // Always load ALL active patient records, not only patients with conversations.
-    const pr=await client.from('patients')
-      .select('id,user_id,full_name,email,active')
-      .order('created_at',{ascending:true});
-    if(pr.error) throw pr.error;
+    // Admin Chat Center uses the real account list so every active Patient
+    // and Staff account can be selected, even before a conversation exists.
+    let accounts=[];
+    const pr=await client.from('profiles')
+      .select('id,full_name,role,active')
+      .in('role',['patient','staff'])
+      .eq('active',true)
+      .order('role',{ascending:true})
+      .order('full_name',{ascending:true});
 
-    const patients=(pr.data||[]).filter(p=>p && p.active!==false);
-    const ids=patients.map(p=>p.user_id).filter(Boolean);
+    if(!pr.error && Array.isArray(pr.data)){
+      accounts=pr.data.map(p=>({
+        user_id:p.id,
+        full_name:p.full_name||'',
+        role:p.role,
+        active:p.active!==false
+      }));
+    }else{
+      // Safe fallback for older records if profiles cannot be read.
+      const [patients,staff]=await Promise.all([
+        client.from('patients').select('user_id,full_name,email,active').eq('active',true),
+        client.from('staff').select('user_id,name,email,active').eq('active',true)
+      ]);
+      (patients.data||[]).forEach(p=>accounts.push({
+        user_id:p.user_id,full_name:p.full_name||p.email||'Patient',
+        email:p.email||'',role:'patient',active:p.active!==false
+      }));
+      (staff.data||[]).forEach(p=>accounts.push({
+        user_id:p.user_id,full_name:p.name||p.email||'Staff',
+        email:p.email||'',role:'staff',active:p.active!==false
+      }));
+    }
 
-    // Conversations are only supplemental; they must never hide a patient.
+    accounts=accounts.filter(a=>a && a.user_id && a.active!==false);
+    const ids=accounts.map(a=>a.user_id);
+
+    // Conversations are supplemental only; they never determine who appears.
     let conversations=[];
     if(ids.length){
       const cr=await client.from('message_conversations')
@@ -8120,63 +8147,48 @@ window.renderAdminPatientChatList=async function(){
         .eq('conversation_id',conv.id)
         .order('created_at',{ascending:false})
         .limit(1);
-      latest[conv.patient_id]={conversation:conv,message:mr.data?.[0]||null};
+      latest[conv.patient_id]=mr.data?.[0]||null;
     }
 
-    box.innerHTML=patients.map(p=>{
-      const name=String(p.full_name||p.email||'Patient').trim();
-      const email=String(p.email||'').trim();
-      const last=latest[p.user_id]?.message;
-      const target=p.user_id || p.id;
-      const linked=p.user_id ? '' : ' · Account not linked';
-      return '<button type="button" data-chat-patient="'+esc(target)+'" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1">'+
+    box.innerHTML=accounts.map(a=>{
+      const name=String(a.full_name||'Account').trim();
+      const role=a.role==='staff'?'Staff':'Patient';
+      const last=latest[a.user_id];
+      return '<button type="button" data-chat-patient="'+esc(a.user_id)+'" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1">'+
         '<span class="text-white font-tech block">'+esc(name)+'</span>'+
-        '<span class="text-[9px] text-cyan-300 block">Patient'+esc(linked)+'</span>'+
-        '<span class="text-[9px] text-slate-400 block">'+esc(email)+'</span>'+
+        '<span class="text-[9px] text-cyan-300 block">'+role+'</span>'+
         '<span class="text-[10px] text-slate-300 block truncate">'+esc(last?.body||'No messages yet')+'</span>'+
         '<span class="text-[8px] text-slate-500">'+(last?.created_at?new Date(last.created_at).toLocaleString():'')+'</span>'+
         '</button>';
-    }).join('') || '<div class="text-xs text-slate-500 p-2">No patients found.</div>';
+    }).join('') || '<div class="text-xs text-slate-500 p-2">No active Patient or Staff accounts found.</div>';
   }catch(e){
-    console.error('[ERecPass] Admin patient picker load failed:',e);
-    box.innerHTML='<div class="text-xs text-rose-400 p-2">Unable to load patients. Please refresh.</div>';
+    console.error('[ERecPass] Admin account chat list failed:',e);
+    box.innerHTML='<div class="text-xs text-rose-400 p-2">Unable to load Patient/Staff accounts. Please refresh.</div>';
   }
 };
 window.selectAdminChatPatient=async function(targetId){
   try{ window.sessionStorage?.setItem('erecpassSelectedChatPatient',targetId); }catch(e){}
   const header=document.getElementById('adminSelectedChatHeader');
-  if(!window.erecpassSupabase) return;
+  const client=window.erecpassSupabase;
+  if(!client) return;
 
-  // Resolve either the auth user_id or the patient row id.
-  let p=null;
-  let r=await window.erecpassSupabase.from('patients')
-    .select('id,user_id,full_name,email,active')
-    .eq('user_id',targetId)
+  const r=await client.from('profiles')
+    .select('id,full_name,role,active')
+    .eq('id',targetId)
     .maybeSingle();
-  if(!r.error && r.data) p=r.data;
-  if(!p){
-    r=await window.erecpassSupabase.from('patients')
-      .select('id,user_id,full_name,email,active')
-      .eq('id',targetId)
-      .maybeSingle();
-    if(!r.error && r.data) p=r.data;
-  }
-  if(!p || p.active===false){
-    if(header) header.innerText='Patient not found';
+
+  if(r.error || !r.data || r.data.active===false){
+    if(header) header.innerText='Account not found';
     return;
   }
 
-  if(header) header.innerText='Chatting with: '+(p.full_name||'Patient')+' · '+(p.email||'');
+  const label=r.data.role==='staff'?'Staff':'Patient';
+  if(header) header.innerText='Chatting with: '+(r.data.full_name||label)+' · '+label;
 
-  if(!p.user_id){
-    const box=document.getElementById('adminChatMessagesBox');
-    if(box) box.innerHTML='<div class="text-xs text-slate-500 text-center py-8">This patient account is not linked to a login account yet.</div>';
-    return;
-  }
-
-  selectedPatientId=p.user_id;
+  selectedPatientId=r.data.id;
   await renderAdmin();
 };
+
 
 const originalShowStaff=window.showStaffApp;
 window.showStaffApp=originalShowStaff;
