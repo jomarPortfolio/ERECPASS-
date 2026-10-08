@@ -2678,6 +2678,9 @@ LOCALSTORAGE DATABASE ENGINE
 
 ========================================================================== */
 
+const epStore = window.localStorage;
+window.epStore = epStore;
+
 const DB_KEYS = {
 
 PATIENTS: 'erecpass_db_patients',
