@@ -3781,138 +3781,155 @@ try {
 
 }
 
+async function getCurrentPatientCloudRow() {
+  const client = window.erecpassSupabase;
+  if (!client?.auth) throw new Error("Cloud account service is not ready.");
+
+  const auth = await client.auth.getUser();
+  const user = auth?.data?.user;
+  if (!user?.id) throw new Error("Patient session is not available.");
+
+  let q = await client.from('patients')
+    .select('id,user_id,full_name,email,sim,photo,age_category,guardian_num,status,lab_results,prescriptions,doctor_notes,online,active')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if ((q.error || !q.data) && user.email) {
+    q = await client.from('patients')
+      .select('id,user_id,full_name,email,sim,photo,age_category,guardian_num,status,lab_results,prescriptions,doctor_notes,online,active')
+      .eq('email', user.email)
+      .maybeSingle();
+  }
+
+  if (q.error) throw q.error;
+  if (!q.data) throw new Error("Patient profile could not be found in Supabase.");
+  return { client, user, row: q.data };
+}
+
+async function savePatientCloudFields(fields) {
+  const { client, user, row } = await getCurrentPatientCloudRow();
+
+  const payload = {};
+  if (Object.prototype.hasOwnProperty.call(fields, 'full_name')) payload.full_name = fields.full_name;
+  if (Object.prototype.hasOwnProperty.call(fields, 'guardian_num')) payload.guardian_num = fields.guardian_num;
+  if (Object.prototype.hasOwnProperty.call(fields, 'photo')) payload.photo = fields.photo;
+
+  const updated = await client.from('patients')
+    .update(payload)
+    .eq('user_id', user.id)
+    .select('id,user_id,full_name,guardian_num,photo')
+    .maybeSingle();
+
+  if (updated.error) throw updated.error;
+  if (!updated.data) throw new Error("Supabase did not confirm the patient profile update.");
+
+  // Verify the value that was just written so the Save action is truly permanent.
+  const verify = await client.from('patients')
+    .select('id,user_id,full_name,guardian_num,photo')
+    .eq('id', updated.data.id)
+    .maybeSingle();
+
+  if (verify.error) throw verify.error;
+  if (!verify.data) throw new Error("Patient profile save could not be verified.");
+  for (const key of Object.keys(payload)) {
+    if ((verify.data[key] ?? null) !== (payload[key] ?? null)) {
+      throw new Error("Patient profile save verification failed.");
+    }
+  }
+  return verify.data;
+}
+
 async function saveProfileName() {
+  const name = document.getElementById('editProfileNameInput')?.value.trim();
+  if (!name) {
+    alert("Please enter your full name.");
+    return;
+  }
 
-const name = document.getElementById('editProfileNameInput')?.value.trim();
-
-if (!name) {
-  alert("Please enter your full name.");
-  return;
-}
-
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
-
-const p = patients.find(i => String(i.id) === String(currentSession?.data?.id));
-
-if (!p) {
-  alert("Patient profile could not be found. Please log in again.");
-  return;
-}
-
-p.fullName = name;
-
-epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
-
-currentSession.data.fullName = name;
-
-epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
-
-try {
-  if (typeof window.erecpassCloudFlush === "function") await window.erecpassCloudFlush();
-} catch (error) {
-  console.error("ERecPass: Save Name cloud sync failed", error);
-  alert("Name was updated on this screen, but the cloud save failed. Please try again.");
-  return;
-}
-
-refreshPatientPortal();
-alert("Name updated successfully.");
-
+  try {
+    const saved = await savePatientCloudFields({full_name:name});
+    const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
+    const p = patients.find(i => String(i.id) === String(saved.id) || String(i.user_id || '') === String(saved.user_id));
+    if (p) p.fullName = saved.full_name;
+    epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
+    currentSession.data.fullName = saved.full_name;
+    currentSession.data.id = saved.id;
+    currentSession.data.user_id = saved.user_id;
+    epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+    refreshPatientPortal();
+    alert("Name updated successfully and saved permanently.");
+  } catch (error) {
+    console.error("ERecPass: Permanent name save failed", error);
+    alert("Name was not saved to the cloud. Please try again.");
+  }
 }
 
 async function saveGuardianContact() {
+  const num = document.getElementById('editGuardianContactInput')?.value.trim();
+  if (!num) {
+    alert("Please enter the guardian emergency contact number.");
+    return;
+  }
 
-const num = document.getElementById('editGuardianContactInput')?.value.trim();
-
-if (!num) {
-  alert("Please enter the guardian emergency contact number.");
-  return;
-}
-
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
-
-const p = patients.find(i => String(i.id) === String(currentSession?.data?.id));
-
-if (!p) {
-  alert("Patient profile could not be found. Please log in again.");
-  return;
-}
-
-p.guardianNum = num;
-
-epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
-
-currentSession.data.guardianNum = num;
-
-epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
-
-try {
-  if (typeof window.erecpassCloudFlush === "function") await window.erecpassCloudFlush();
-} catch (error) {
-  console.error("ERecPass: Guardian contact cloud sync failed", error);
-  alert("Guardian contact was updated on this screen, but the cloud save failed. Please try again.");
-  return;
-}
-
-refreshPatientPortal();
-alert("Guardian contact updated.");
-
+  try {
+    const saved = await savePatientCloudFields({guardian_num:num});
+    const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
+    const p = patients.find(i => String(i.id) === String(saved.id) || String(i.user_id || '') === String(saved.user_id));
+    if (p) p.guardianNum = saved.guardian_num;
+    epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
+    currentSession.data.guardianNum = saved.guardian_num;
+    currentSession.data.id = saved.id;
+    currentSession.data.user_id = saved.user_id;
+    epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
+    refreshPatientPortal();
+    alert("Guardian emergency contact updated and saved permanently.");
+  } catch (error) {
+    console.error("ERecPass: Permanent guardian contact save failed", error);
+    alert("Guardian emergency contact was not saved to the cloud. Please try again.");
+  }
 }
 
 function handleProfilePhotoUpload(e) {
+  const file = e?.target?.files?.[0];
+  if (!file) return;
 
-const file = e?.target?.files?.[0];
+  if (!file.type || !file.type.startsWith("image/")) {
+    alert("Please select an image file.");
+    return;
+  }
 
-if (!file) return;
+  const reader = new FileReader();
 
-if (!file.type || !file.type.startsWith("image/")) {
-  alert("Please select an image file.");
-  return;
-}
+  reader.onload = async function(evt) {
+    const photo = evt.target?.result;
+    if (!photo) {
+      alert("The selected photo could not be read.");
+      return;
+    }
 
-const reader = new FileReader();
+    try {
+      const saved = await savePatientCloudFields({photo:photo});
+      const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
+      const p = patients.find(i => String(i.id) === String(saved.id) || String(i.user_id || '') === String(saved.user_id));
+      if (p) p.photo = saved.photo;
+      epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
 
-reader.onload = async function(evt) {
+      currentSession.data.photo = saved.photo;
+      currentSession.data.id = saved.id;
+      currentSession.data.user_id = saved.user_id;
+      epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
 
-const photo = evt.target?.result;
+      refreshPatientPortal();
+      alert("Profile picture updated successfully and saved permanently.");
+    } catch (error) {
+      console.error("ERecPass: Permanent profile photo save failed", error);
+      alert("Profile picture was not saved to the cloud. Please try again.");
+    } finally {
+      if (e?.target) e.target.value = '';
+    }
+  };
 
-if (!photo) {
-  alert("The selected photo could not be read.");
-  return;
-}
-
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
-
-const p = patients.find(i => String(i.id) === String(currentSession?.data?.id));
-
-if (!p) {
-  alert("Patient profile could not be found. Please log in again.");
-  return;
-}
-
-p.photo = photo;
-
-epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
-
-currentSession.data.photo = photo;
-
-epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
-
-try {
-  if (typeof window.erecpassCloudFlush === "function") await window.erecpassCloudFlush();
-} catch (error) {
-  console.error("ERecPass: Profile photo cloud sync failed", error);
-  alert("Profile picture was updated on this screen, but the cloud save failed. Please try again.");
-  return;
-}
-
-refreshPatientPortal();
-alert("Profile picture updated successfully.");
-
-};
-
-reader.readAsDataURL(file);
-
+  reader.readAsDataURL(file);
 }
 
 /* Patient Appointment Booking Modal */
