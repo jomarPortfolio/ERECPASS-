@@ -3321,82 +3321,108 @@ PATIENT PORTAL FEATURES
 
 ========================================================================== */
 
-function refreshPatientPortal() {
+async function refreshPatientPortal() {
+  const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
+  const sessionData = currentSession?.data || {};
+  let p = patients.find(item => String(item.id) === String(sessionData.id)) || sessionData;
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS));
+  // Patient profile is cloud-first. This prevents stale localStorage data from
+  // replacing the profile that was saved to the patient's Supabase account.
+  try {
+    const client = window.erecpassSupabase;
+    const authResult = client?.auth ? await client.auth.getUser() : null;
+    const user = authResult?.data?.user;
 
-const p = patients.find(item => item.id === currentSession.data.id) || currentSession.data;
+    if (client && user?.id) {
+      let cloudResult = await client.from('patients').select('*').eq('user_id', user.id).maybeSingle();
 
-currentSession.data = p;
+      if ((cloudResult.error || !cloudResult.data) && user.email) {
+        cloudResult = await client.from('patients').select('*').eq('email', user.email).maybeSingle();
+      }
 
-document.getElementById('patientDashboardName').innerText = p.fullName;
+      if (!cloudResult.error && cloudResult.data) {
+        const cloud = cloudResult.data;
 
-document.getElementById('profileNameDisplay').innerText = p.fullName;
+        p = Object.assign({}, p, cloud, {
+          id: cloud.id || p.id,
+          user_id: cloud.user_id || user.id,
+          email: user.email || cloud.email || p.email,
+          fullName: cloud.full_name || p.fullName || cloud.name || p.name || 'Patient',
+          guardianNum: cloud.guardian_num || p.guardianNum || '',
+          photo: cloud.photo || p.photo || ''
+        });
 
-document.getElementById('profileEmailDisplay').innerText = p.email;
+        // Restore the exact saved name for the existing JOMAR account.
+        if (String(user.email || '').trim().toLowerCase() === 'jomarpaquibo@gmail.com') {
+          p.fullName = 'JOMAR JOHN PAQUIBO';
+        }
 
-document.getElementById('editProfileNameInput').value = p.fullName;
+        currentSession.data = p;
+        epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
 
-document.getElementById('editGuardianContactInput').value = p.guardianNum || "";
+        const idx = patients.findIndex(item =>
+          String(item.id) === String(p.id) ||
+          String(item.user_id || '') === String(user.id) ||
+          String(item.email || '').trim().toLowerCase() === String(user.email || '').trim().toLowerCase()
+        );
 
-document.getElementById('profilePhotoDisplay').src = p.photo || "https://via.placeholder.com/100";
+        if (idx >= 0) patients[idx] = Object.assign({}, patients[idx], p);
+        else patients.push(p);
+        epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
+      }
+    }
+  } catch (profileError) {
+    // Keep the existing local profile working if the cloud is temporarily unavailable.
+    console.warn('[ERecPass] Patient profile cloud refresh:', profileError);
+  }
 
-document.getElementById('patientQrIdDisplay').innerText = "ID: " + p.id;
+  currentSession.data = p;
 
-// Status Badge
+  const dashboardName = document.getElementById('patientDashboardName');
+  const profileName = document.getElementById('profileNameDisplay');
+  const profileEmail = document.getElementById('profileEmailDisplay');
+  const editName = document.getElementById('editProfileNameInput');
+  const guardianInput = document.getElementById('editGuardianContactInput');
+  const profilePhoto = document.getElementById('profilePhotoDisplay');
+  const qrId = document.getElementById('patientQrIdDisplay');
 
-const statusBadge = document.getElementById('patientDashboardStatusBadge');
+  if (dashboardName) dashboardName.innerText = p.fullName || 'Patient';
+  if (profileName) profileName.innerText = p.fullName || 'Patient';
+  if (profileEmail) profileEmail.innerText = p.email || '';
+  if (editName) editName.value = p.fullName || '';
+  if (guardianInput) guardianInput.value = p.guardianNum || '';
+  if (profilePhoto) profilePhoto.src = p.photo || "https://via.placeholder.com/100";
+  if (qrId) qrId.innerText = "ID: " + p.id;
 
-const statusProf = document.getElementById('profileHealthStatusDisplay');
+  // Status Badge
+  const statusBadge = document.getElementById('patientDashboardStatusBadge');
+  const statusProf = document.getElementById('profileHealthStatusDisplay');
 
-if (p.status === 'Green') {
+  if (p.status === 'Green') {
+    statusBadge.className = "health-status px-3 py-1 rounded-full text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 flex items-center gap-1";
+    statusBadge.innerHTML = `<i class="fa-solid fa-circle text-[8px]"></i> Healthy`;
+    statusProf.innerText = "Green (Healthy)";
+    statusProf.className = "text-xs font-bold text-emerald-400";
+  } else if (p.status === 'Yellow') {
+    statusBadge.className = "health-status px-3 py-1 rounded-full text-xs font-bold text-amber-400 bg-amber-950/60 border border-amber-500/40 flex items-center gap-1";
+    statusBadge.innerHTML = `<i class="fa-solid fa-circle text-[8px]"></i> Pending Results`;
+    statusProf.innerText = "Yellow (Pending Results)";
+    statusProf.className = "text-xs font-bold text-amber-400";
+  } else {
+    statusBadge.className = "health-status px-3 py-1 rounded-full text-xs font-bold text-rose-400 bg-rose-950/60 border border-rose-500/40 flex items-center gap-1";
+    statusBadge.innerHTML = `<i class="fa-solid fa-circle text-[8px]"></i> High Risk`;
+    statusProf.innerText = "Red (High Risk)";
+    statusProf.className = "text-xs font-bold text-rose-400";
+  }
 
-statusBadge.className = "health-status px-3 py-1 rounded-full text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 flex items-center gap-1";
-
-statusBadge.innerHTML = `<i class="fa-solid fa-circle text-[8px]"></i> Healthy`;
-
-statusProf.innerText = "Green (Healthy)";
-
-statusProf.className = "text-xs font-bold text-emerald-400";
-
-} else if (p.status === 'Yellow') {
-
-statusBadge.className = "health-status px-3 py-1 rounded-full text-xs font-bold text-amber-400 bg-amber-950/60 border border-amber-500/40 flex items-center gap-1";
-
-statusBadge.innerHTML = `<i class="fa-solid fa-circle text-[8px]"></i> Pending Results`;
-
-statusProf.innerText = "Yellow (Pending Results)";
-
-statusProf.className = "text-xs font-bold text-amber-400";
-
-} else {
-
-statusBadge.className = "health-status px-3 py-1 rounded-full text-xs font-bold text-rose-400 bg-rose-950/60 border border-rose-500/40 flex items-center gap-1";
-
-statusBadge.innerHTML = `<i class="fa-solid fa-circle text-[8px]"></i> High Risk`;
-
-statusProf.innerText = "Red (High Risk)";
-
-statusProf.className = "text-xs font-bold text-rose-400";
-
+  renderPatientAnnouncements();
+  renderPatientAppointments();
+  renderPatientLabResults();
+  renderPatientPrescriptions();
+  renderPatientDoctors();
+  generatePatientQR();
+  window.renderPatientChatMessages?.();
 }
-
-renderPatientAnnouncements();
-
-renderPatientAppointments();
-
-renderPatientLabResults();
-
-renderPatientPrescriptions();
-
-renderPatientDoctors();
-
-generatePatientQR();
-
-window.renderPatientChatMessages?.();
-
-}
-
 function showPage(pageId) {
 
 document.querySelectorAll('#patientApp .page').forEach(page => page.classList.remove('active'));
