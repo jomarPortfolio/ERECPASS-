@@ -997,7 +997,6 @@ button[class*="bg-slate-900"]{
   background:#f6f9fc !important;
   color:#31536f !important;
 }
-
 /* Chat */
 .chat-input{  background:#f7fafd !important;
   border-color:rgba(23,105,224,.12) !important;
@@ -1997,7 +1996,6 @@ Already have an account?
 </section>
 
 </main>
-
 <!-- PATIENT BOTTOM NAVIGATION -->
 
 <nav class="bottom-nav fixed bottom-0 left-0 right-0 h-[122px] border-t z-30 grid grid-cols-4 grid-rows-2 items-center justify-items-center px-2 py-2 gap-x-1 gap-y-0" style="background:#ffffff !important;">
@@ -2998,7 +2996,6 @@ emailRedirectTo: redirectTo,
 data: {
 
 full_name: fullName,
-
 sim: sim,
 
 age_category: "Adult",
@@ -3997,7 +3994,6 @@ refreshPatientPortal();
 alert("Appointment submitted to admin for approval.");
 
 }
-
 /* Patient Chat is Supabase-only. The messaging implementation is loaded below. */
 
 /* Emergency Hold Button 3s behavior */
@@ -4998,7 +4994,6 @@ if (!selectedChatPatientId) return;
 const chats = JSON.parse(epStore.getItem(DB_KEYS.CHATS)) || [];
 
 const filtered = chats.filter(c => c.patientId === selectedChatPatientId);
-
 const box = document.getElementById('adminChatMessagesBox');
 
 box.innerHTML = "";
@@ -5998,7 +5993,6 @@ window.renderAdminAppointmentsList();
     });
 
     closeScannedLabPhotoViewer();
-
     var modal = document.createElement("div");
     modal.id = "scannedLabPhotoViewer";
     modal.style.cssText =
@@ -6997,8 +6991,7 @@ Never place a service_role/secret key in browser code. -->
 
     if (typeof window.renderAdminAppointmentsList === 'function') {
       window.renderAdminAppointmentsList();
-    }
-  }
+    }  }
 
   function addDeleteButtonsToAdminAppointments() {
     const container = document.getElementById('adminAppointmentsList');
@@ -7997,7 +7990,6 @@ setTimeout(installAddedUI,2500);
         }));
       }
     }
-
     accounts=accounts.filter(a=>a && a.user_id);
     accounts.sort((a,b)=>{
       const roleA=a.role==='patient'?0:1, roleB=b.role==='patient'?0:1;
@@ -8245,7 +8237,7 @@ setTimeout(()=>{if(currentSession?.role==='staff') renderStaffAdminChat();},1000
 </script>
 <!-- END ERECPASS PATIENT PROFILE FINAL RESTORE -->
 <!-- ERECPASS SUPABASE ADMIN APPOINTMENT ACTIONS -->
-<script src="./admin-appointment-supabase-fix.js?v=f79190b"></script>
+<script src="./admin-appointment-supabase-fix.js?v=8830cb9"></script>
 </body>
 </html>
 <!-- ERECPASS SUPABASE ADMIN CHAT REPLY OVERRIDE -->
