@@ -1,5 +1,5 @@
 name: Deploy ERecPass to GitHub Pages
-# Permanent branding deployment verification enabled
+# Deployment health check refresh: 2026-10-08
 
 on:
   push:
