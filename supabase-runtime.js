@@ -48,7 +48,16 @@
       const ps=(rs[0].error?[]:rs[0].data||[]).map(patient),ss=(rs[1].error?[]:rs[1].data||[]).map(staff);
       put(K.P,ps);put(K.S,ss);put(K.B,(rs[2].error?[]:rs[2].data||[]).map(appt));put(K.N,(rs[3].error?[]:rs[3].data||[]).map(ann));put(K.C,(rs[4].error?[]:rs[4].data||[]).map(msg));put(K.L,(rs[5].error?[]:rs[5].data||[]).map(x=>({id:x.id,timestamp:x.created_at,text:x.event_text})));put(K.A,[]);
       const data=role==='patient'?(ps.find(p=>p.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,fullName:pr.data.full_name}):role==='staff'?(ss.find(s=>s.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name}):{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name,fullName:pr.data.full_name};
-      if(typeof currentSession!=='undefined'){currentSession={role,data};put(K.X,currentSession)}
+      if(typeof currentSession!=='undefined'){
+        currentSession={role,data};
+        put(K.X,currentSession);
+        // Restore the already-open portal after cloud hydration finishes.
+        // This prevents the admin Patient List from staying blank when the
+        // portal was opened before Supabase finished loading its records.
+        if(role==='admin' && typeof window.refreshAdminPortal==='function') window.refreshAdminPortal();
+        if(role==='staff' && typeof window.refreshStaffPortal==='function') window.refreshStaffPortal();
+        if(role==='patient' && typeof window.refreshPatientPortal==='function') window.refreshPatientPortal();
+      }
       if(channel)await sb().removeChannel(channel);
       channel=sb().channel('erecpass-sync-'+u.id);
       ['patients','staff','appointments','announcements','help_center_messages','activity_logs','app_settings'].forEach(t=>channel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>{if(!loading)hydrate().catch(e=>err('realtime refresh',e))}));
