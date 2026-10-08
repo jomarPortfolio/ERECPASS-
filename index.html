@@ -4214,7 +4214,7 @@ renderAdminStaffList();
 
 renderAdminAppointmentsList();
 
-renderAdminPatientChatList();
+await renderAdminPatientChatList();
 
 renderAdminLogs();
 
@@ -4860,32 +4860,52 @@ try {
 }
 }
 
-function renderAdminPatientChatList() {
+async function renderAdminPatientChatList() {
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
+let patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
+
+try {
+  const client = window.erecpassSupabase;
+  if (client && currentSession?.role === 'admin') {
+    const cloud = await client.from('patients').select('*').order('created_at', { ascending: true });
+    if (!cloud.error && Array.isArray(cloud.data)) {
+      patients = cloud.data.map(p => ({
+        id: p.id,
+        user_id: p.user_id,
+        fullName: p.full_name || p.name || '',
+        email: p.email || '',
+        sim: p.sim || '',
+        photo: p.photo || '',
+        ageCategory: p.age_category || '',
+        guardianNum: p.guardian_num || '',
+        status: p.status || 'Green',
+        labResults: p.lab_results || [],
+        prescriptions: p.prescriptions || [],
+        doctorNotes: p.doctor_notes || '',
+        online: !!p.online,
+        active: p.active !== false
+      }));
+      epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
+    }
+  }
+} catch (e) {
+  console.warn('[ERecPass] Admin Chat Patient List:', e);
+}
 
 const container = document.getElementById('adminPatientChatList');
-
+if (!container) return;
 container.innerHTML = "";
 
-patients.forEach(p => {
-
-container.innerHTML += `
-
+patients.filter(p => p && p.id && p.fullName).forEach(p => {
+  container.innerHTML += `
 <div onclick="selectAdminChatPatient('${p.id}')" class="p-2 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs flex justify-between items-center">
-
 <span class="text-white font-tech">${p.fullName}</span>
-
 <span class="w-2 h-2 rounded-full ${p.online ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
-
 </div>
-
 `;
-
 });
 
 }
-
 function selectAdminChatPatient(pid) {
 
 selectedChatPatientId = pid;
