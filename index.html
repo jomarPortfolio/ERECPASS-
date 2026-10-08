@@ -4180,8 +4180,9 @@ let patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
 // remains visible even when the local cache is empty/stale after login.
 try {
   const client = window.erecpassSupabase;
-  const adminUser = currentSession?.data?.email;
-  if (client && String(adminUser || '').trim().toLowerCase() === 'admin2@gmail.com') {
+  // The Admin Patient List must load all patient records from Supabase.
+  // Do not depend on a specific admin email; this keeps the fix isolated to admins.
+  if (client && currentSession?.role === 'admin') {
     const cloud = await client.from('patients').select('*').order('created_at', { ascending: true });
     if (!cloud.error && Array.isArray(cloud.data)) {
       patients = cloud.data.map(p => ({
