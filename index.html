@@ -4658,13 +4658,47 @@ try {
 async function updateApptStatus(id, status) {
 try {
   const client = window.erecpassSupabase;
-  if (!client) throw new Error('Supabase is not ready.');
-  const { error } = await client.from('appointments').update({
-    status: status,
-    updated_at: new Date().toISOString()
-  }).eq('id', id);
+  if (!client?.auth) throw new Error('Supabase is not ready. Please refresh the app.');
+
+  if (!id) throw new Error('Appointment ID is missing.');
+  if (status !== 'Approved' && status !== 'Cancelled') {
+    throw new Error('Invalid appointment status.');
+  }
+
+  // Always use the real Supabase Auth session. Do not rely on the local app session.
+  const { data: authData, error: authError } = await client.auth.getUser();
+  if (authError) throw authError;
+  const authUser = authData?.user;
+  if (!authUser?.id) throw new Error('Your Admin login session has expired. Please log in again.');
+
+  const { data: profile, error: profileError } = await client
+    .from('profiles')
+    .select('id,role,active')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  if (profileError) throw profileError;
+  if (profile?.role !== 'admin' || profile?.active !== true) {
+    throw new Error('This account is not an active Admin account.');
+  }
+
+  const { data: updated, error } = await client
+    .from('appointments')
+    .update({
+      status: status,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', String(id))
+    .select('id,status,updated_at')
+    .maybeSingle();
+
   if (error) throw error;
+  if (!updated) {
+    throw new Error('The appointment was not updated. Please refresh the appointment list and try again.');
+  }
+
   await renderAdminAppointmentsList();
+
   if (typeof renderPatientAppointments === 'function' && currentSession?.role === 'patient') {
     await renderPatientAppointments();
   }
