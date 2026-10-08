@@ -7881,7 +7881,7 @@ setTimeout(installAddedUI,2500);
       const statusClass=isActive?'text-emerald-600':'text-rose-600';
       const dotClass=isActive?'bg-emerald-500':'bg-rose-500';
       const last=latest[a.user_id];
-      return '<button type="button" data-chat-patient="'+esc(a.user_id)+'" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1">'+
+      return '<button type="button" data-chat-patient="'+esc(a.user_id)+'" onclick="selectAdminChatPatient(\''+esc(a.user_id)+'\')" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1">'+
         '<span class="text-white font-tech flex items-center justify-between gap-2">'+
           '<span class="truncate">'+esc(name)+'</span>'+
           '<span class="'+statusClass+' text-[9px] font-bold inline-flex items-center gap-1 shrink-0"><span class="'+dotClass+' inline-block w-2 h-2 rounded-full"></span>'+statusLabel+'</span>'+
