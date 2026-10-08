@@ -8044,26 +8044,52 @@ window.renderAdminPatientChatList=async function(){
   const box=document.getElementById('adminPatientChatList');
   if(!box||!window.erecpassSupabase||!['admin','staff'].includes(currentSession?.role)) return;
   const client=window.erecpassSupabase;
-  const r=await client.from('message_conversations').select('id,patient_id,status,updated_at').order('updated_at',{ascending:false});
-  if(r.error){console.error('[ERecPass] Chat inbox load failed:',r.error);return;}
-  const ids=[...new Set((r.data||[]).map(x=>x.patient_id).filter(Boolean))];
-  const [pr,sr]=await Promise.all([
-    ids.length?client.from('patients').select('user_id,full_name,email,active').in('user_id',ids):Promise.resolve({data:[]}),
-    ids.length?client.from('staff').select('user_id,name,email,active').in('user_id',ids):Promise.resolve({data:[]})
-  ]);
-  const patients={};(pr.data||[]).forEach(x=>patients[x.user_id]=x);
-  const staff={};(sr.data||[]).forEach(x=>staff[x.user_id]=x);
-  const cards=[];
-  for(const conv of (r.data||[])){
-    const p=patients[conv.patient_id], s=staff[conv.patient_id];
-    const person=p||s;
-    if(!person||person.active===false) continue;
-    const m=await client.from('message_messages').select('body,created_at').eq('conversation_id',conv.id).order('created_at',{ascending:false}).limit(1);
-    const last=m.data?.[0];
-    const type=s?'Staff':'Patient';
-    cards.push('<button type="button" data-chat-patient="'+esc(person.user_id)+'" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1"><span class="text-white font-tech block">'+esc(person.full_name||person.name||type)+'</span><span class="text-[9px] text-cyan-300 block">'+type+' · '+esc(person.email||'')+'</span><span class="text-[10px] text-slate-400 block truncate">'+esc(last?.body||'No messages yet')+'</span><span class="text-[8px] text-slate-500">'+(last?.created_at?new Date(last.created_at).toLocaleString(): '')+'</span></button>');
+  try{
+    // Patient List is the source of selectable chat recipients.
+    // Existing conversations/messages are still shown when available; patients
+    // without a conversation are also listed so Admin can start a new chat.
+    const pr=await client.from('patients').select('user_id,full_name,email,active').order('full_name',{ascending:true});
+    if(pr.error) throw pr.error;
+    const patients=(pr.data||[]).filter(p=>p?.user_id&&p.active!==false);
+
+    const conversations=await client.from('message_conversations')
+      .select('id,patient_id,status,updated_at')
+      .order('updated_at',{ascending:false});
+    if(conversations.error) throw conversations.error;
+
+    const convByPatient={};
+    (conversations.data||[]).forEach(conv=>{
+      if(conv.patient_id && !convByPatient[conv.patient_id]) convByPatient[conv.patient_id]=conv;
+    });
+
+    const cards=[];
+    for(const p of patients){
+      const conv=convByPatient[p.user_id];
+      let last=null;
+      if(conv){
+        const m=await client.from('message_messages')
+          .select('body,created_at')
+          .eq('conversation_id',conv.id)
+          .order('created_at',{ascending:false})
+          .limit(1);
+        if(!m.error) last=m.data?.[0]||null;
+      }
+      const selected=window.sessionStorage?.getItem('erecpassSelectedChatPatient')===String(p.user_id);
+      cards.push(
+        '<button type="button" data-chat-patient="'+esc(p.user_id)+'" '+
+        'class="w-full text-left p-3 rounded-xl cursor-pointer text-xs mb-1 '+(selected?'bg-cyan-950 ring-1 ring-cyan-400':'bg-slate-900 hover:bg-cyan-950')+'">'+
+        '<span class="text-white font-tech block">'+esc(p.full_name||'Patient')+'</span>'+
+        '<span class="text-[9px] text-cyan-300 block">Patient · '+esc(p.email||'No email')+'</span>'+
+        '<span class="text-[10px] text-slate-400 block truncate">'+esc(last?.body||'Start a conversation')+'</span>'+
+        '<span class="text-[8px] text-slate-500">'+(last?.created_at?new Date(last.created_at).toLocaleString():'No messages yet')+'</span>'+
+        '</button>'
+      );
+    }
+    box.innerHTML=cards.join('')||'<div class="text-xs text-slate-500 p-2">No active patients found.</div>';
+  }catch(e){
+    console.error('[ERecPass] Patient chat list load failed:',e);
+    box.innerHTML='<div class="text-xs text-rose-300 p-2">Unable to load patient list. Please refresh.</div>';
   }
-  box.innerHTML=cards.join('')||'<div class="text-xs text-slate-500 p-2">No conversations yet.</div>';
 };
 window.selectAdminChatPatient=async function(uid){
   window.sessionStorage?.setItem('erecpassSelectedChatPatient',uid);
