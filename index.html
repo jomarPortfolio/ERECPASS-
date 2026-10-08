@@ -7443,7 +7443,12 @@ setTimeout(installAddedUI,2500);
     return '<div class="erecpass-chat-message-wrap '+(sideRight?'justify-end':'justify-start')+' items-center gap-1" data-message-id="'+esc(m.id)+'">'+
       (canDelete && !sideRight ? '<button type="button" class="erecpass-delete-btn order-first" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>' : '')+
       '<div class="flex flex-col '+(sideRight?'items-end':'items-start')+'">'+
-        '<span class="text-[9px] font-bold text-cyan-300 mb-0.5">'+esc(senderLabel)+'</span>'+\n        '<div class="'+(sideRight?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words">'+esc(m.body)+'</div>'+\n        '<span class="text-[9px] text-slate-500 mt-0.5">'+stamp(m.created_at)+'</span>'+\n      '</div>'+\n      (canDelete && sideRight ? '<button type="button" class="erecpass-delete-btn" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>' : '')+\n    '</div>';\n  }
+        '<span class="text-[9px] font-bold text-cyan-300 mb-0.5">'+esc(senderLabel)+'</span>'+
+        '<div class="'+(sideRight?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words">'+esc(m.body)+'</div>'+
+        '<span class="text-[9px] text-slate-500 mt-0.5">'+stamp(m.created_at)+'</span>'+
+      '</div>'+
+      (canDelete && sideRight ? '<button type="button" class="erecpass-delete-btn" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>' : '')+
+    '</div>';\n  }
 
   function renderBox(id,messages,viewPatientId){
     const box=document.getElementById(id);
@@ -7523,21 +7528,29 @@ setTimeout(installAddedUI,2500);
     const input=document.getElementById('patientChatInput');
     const body=(input?.value||'').trim();
     if(!body) return;
+    const button=input?.parentElement?.querySelector('button');
     try {
+      if(button) button.disabled=true;
       const uid=await ensureAuthUserId();
       const c=await getConversation(uid);
       const r=await S().from('message_messages').insert({
-        conversation_id:c.id,sender_id:uid,body
+        conversation_id:c.id,
+        sender_id:uid,
+        body:body
       }).select('id,conversation_id,sender_id,body,created_at,read_at').single();
       if(r.error) throw r.error;
-      await S().from('message_conversations').update({
-        status:'Open',updated_at:new Date().toISOString()
+      const cr=await S().from('message_conversations').update({
+        status:'Open',
+        updated_at:new Date().toISOString()
       }).eq('id',c.id);
+      if(cr.error) throw cr.error;
       if(input) input.value='';
       await renderPatient();
     } catch(e) {
-      console.error('[ERecPass] Patient send failed:',e);
-      alert('Hindi naipadala ang message. Pakisubukan ulit.');
+      console.error('[ERecPass] Patient chat send failed:',e);
+      alert('Hindi naipadala ang message. '+(e?.message||'Pakisubukan ulit.'));
+    } finally {
+      if(button) button.disabled=false;
     }
   };
   window.sendPatientChatFile=()=>alert('Text messaging is ready.');
@@ -7594,21 +7607,30 @@ setTimeout(installAddedUI,2500);
     const body=(input?.value||'').trim();
     if(!selectedPatientId) return alert('Please select a patient first.');
     if(!body) return;
+    const button=input?.parentElement?.querySelector('button');
     try {
+      if(button) button.disabled=true;
       const uid=await ensureAuthUserId();
       const c=await getConversation(selectedPatientId);
       const r=await S().from('message_messages').insert({
-        conversation_id:c.id,sender_id:uid,body
+        conversation_id:c.id,
+        sender_id:uid,
+        body:body
       }).select('id,conversation_id,sender_id,body,created_at,read_at').single();
       if(r.error) throw r.error;
-      await S().from('message_conversations').update({
-        status:'Open',updated_at:new Date().toISOString()
+      const cr=await S().from('message_conversations').update({
+        status:'Open',
+        updated_at:new Date().toISOString()
       }).eq('id',c.id);
+      if(cr.error) throw cr.error;
       if(input) input.value='';
       await renderAdmin();
+      await window.renderAdminPatientChatList();
     } catch(e) {
-      console.error('[ERecPass] Admin send failed:',e);
-      alert('Hindi naipadala ang reply. Pakisubukan ulit.');
+      console.error('[ERecPass] Admin chat send failed:',e);
+      alert('Hindi naipadala ang reply. '+(e?.message||'Pakisubukan ulit.'));
+    } finally {
+      if(button) button.disabled=false;
     }
   };
 
