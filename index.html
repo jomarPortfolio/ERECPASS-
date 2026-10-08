@@ -7614,5 +7614,75 @@ setTimeout(installAddedUI,2500);
   window.addEventListener('pageshow',boot);
 })();
 </script>
+<!-- ERECPASS: CHAT IDENTITY REPAIR -->
+<script>
+(function(){
+  const S=()=>window.erecpassSupabase;
+  const role=()=>window.currentSession?.role||'';
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const time=v=>{try{return new Date(v).toLocaleString([],{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return''}};
+  const me=async()=>{const r=await S().auth.getUser();if(r.error)throw r.error;return r.data.user.id};
+  let selected=null,channel=null;
+  async function conversation(pid){
+    let r=await S().from('message_conversations').select('*').eq('patient_id',pid).limit(1);
+    if(r.error)throw r.error;
+    if(r.data?.[0])return r.data[0];
+    r=await S().from('message_conversations').insert({patient_id:pid,subject:'ERecPass Support',status:'Open'}).select('*').single();
+    if(r.error)throw r.error; return r.data;
+  }
+  async function messages(cid){
+    const r=await S().from('message_messages').select('id,sender_id,body,created_at').eq('conversation_id',cid).order('created_at',{ascending:true});
+    if(r.error)throw r.error;return r.data||[];
+  }
+  function render(id,rows,my){
+    const box=document.getElementById(id);if(!box)return;
+    box.innerHTML=rows.length?rows.map(m=>'<div class="flex '+(m.sender_id===my?'justify-end':'justify-start')+' mb-2"><div><div class="'+(m.sender_id===my?'bg-cyan-500 text-slate-950':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[80%] break-words">'+esc(m.body)+'</div><div class="text-[9px] text-slate-500">'+time(m.created_at)+'</div></div></div>').join(''):'<div class="text-center text-xs text-slate-500 py-8">No messages yet.</div>';
+    box.scrollTop=box.scrollHeight;
+  }
+  async function patient(){
+    if(role()!=='patient'||!S())return;
+    const id=await me(),c=await conversation(id);render('patientChatBox',await messages(c.id),id);listen(c.id);
+  }
+  async function inbox(){
+    if(!['admin','staff'].includes(role())||!S())return;
+    const box=document.getElementById('adminPatientChatList');if(!box)return;
+    const r=await S().from('message_conversations').select('id,patient_id,status,updated_at').order('updated_at',{ascending:false});
+    if(r.error)throw r.error;
+    const ids=[...new Set((r.data||[]).map(x=>x.patient_id))];
+    let info={};if(ids.length){const p=await S().from('patients').select('user_id,full_name,email,active').in('user_id',ids);if(p.error)throw p.error;(p.data||[]).forEach(x=>info[x.user_id]=x)}
+    const cards=[];
+    for(const c of r.data||[]){const p=info[c.patient_id]||{};const ms=await messages(c.id);const last=ms[ms.length-1];cards.push('<button type="button" data-chat-patient="'+esc(c.patient_id)+'" class="w-full text-left p-3 rounded-xl border border-slate-700 bg-slate-900 hover:bg-cyan-950 mb-1"><span class="text-white font-bold block">'+esc(p.full_name||'Unknown Patient')+'</span><span class="text-[9px] text-cyan-300 block">'+esc(p.email||'No email')+'</span><span class="text-[10px] text-slate-400 block truncate">'+esc(last?.body||'No messages yet')+'</span><span class="text-[8px] text-slate-500">'+time(last?.created_at||c.updated_at)+'</span></button>')}
+    box.innerHTML=cards.join('')||'<div class="text-xs text-slate-500 p-2">No patient conversations yet.</div>';
+  }
+  async function openPatient(pid){
+    selected=pid;
+    const p=await S().from('patients').select('full_name,email').eq('user_id',pid).maybeSingle();
+    const h=document.getElementById('adminSelectedChatHeader');
+    if(h)h.textContent='Chatting with: '+(p.data?.full_name||'Patient')+' · '+(p.data?.email||'');
+    const id=await me(),c=await conversation(pid);render('adminChatMessagesBox',await messages(c.id),id);listen(c.id);
+  }
+  function listen(cid){
+    if(channel)try{S().removeChannel(channel)}catch(e){}
+    channel=S().channel('erecpass-chat-'+cid).on('postgres_changes',{event:'*',schema:'public',table:'message_messages',filter:'conversation_id=eq.'+cid},()=>role()==='patient'?patient():openPatient(selected)).subscribe();
+  }
+  window.renderPatientChatMessages=patient;
+  window.renderAdminPatientChatList=inbox;
+  window.selectAdminChatPatient=openPatient;
+  window.renderAdminChatMessages=()=>selected&&openPatient(selected);
+  window.sendPatientMessage=async function(){
+    const i=document.getElementById('patientChatInput'),body=(i?.value||'').trim();if(!body)return;
+    const id=await me(),c=await conversation(id);const r=await S().from('message_messages').insert({conversation_id:c.id,sender_id:id,body});
+    if(r.error)throw r.error;if(i)i.value='';await patient();
+  };
+  window.sendAdminChatMessage=async function(){
+    const i=document.getElementById('adminChatInput'),body=(i?.value||'').trim();if(!selected)return alert('Please select a patient first.');if(!body)return;
+    const id=await me(),c=await conversation(selected);const r=await S().from('message_messages').insert({conversation_id:c.id,sender_id:id,body});
+    if(r.error)throw r.error;if(i)i.value='';await openPatient(selected);
+  };
+  document.addEventListener('click',e=>{const b=e.target.closest?.('[data-chat-patient]');if(b){e.preventDefault();openPatient(b.dataset.chatPatient)}},true);
+  async function boot(){if(!S()||!role())return setTimeout(boot,500);if(role()==='patient')await patient();else await inbox()}
+  setTimeout(boot,800);
+})();
+</script>
 </body>
 </html>
