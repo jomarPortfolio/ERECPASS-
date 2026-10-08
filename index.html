@@ -7805,9 +7805,23 @@ document.addEventListener('click',function(ev){
     if(!client||!patientId) throw new Error('Patient account service is not ready. Please refresh and try again.');
     const clean=String(value??'').trim();
     if(!clean) throw new Error(field==='full_name'?'Please enter your full name.':'Please enter the emergency contact/guardian.');
-    const payload={}; payload[field]=clean;
-    const {data:updated,error}=await client.from('patients').update(payload).eq('id',String(patientId)).select('id,full_name,guardian_num').maybeSingle();
+    const {data:authData,error:authError}=await client.auth.getUser();
+    if(authError) throw authError;
+    if(!authData?.user?.id) throw new Error('Your login session expired. Please log in again.');
+    const rpcPayload={
+      p_full_name:field==='full_name'?clean:null,
+      p_sim:null,
+      p_photo:null,
+      p_age_category:null,
+      p_guardian_num:field==='guardian_num'?clean:null,
+      p_lab_results:null,
+      p_prescriptions:null,
+      p_doctor_notes:null
+    };
+    const {error}=await client.rpc('update_own_patient_profile',rpcPayload);
     if(error) throw error;
+    const {data:updated,error:readError}=await client.from('patients').select('id,full_name,guardian_num').eq('user_id',authData.user.id).maybeSingle();
+    if(readError) throw readError;
     if(!updated) throw new Error('Your profile was not updated. Please refresh and try again.');
     const patients=JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)||'[]'), local=patients.find(p=>String(p.id)===String(patientId));
     if(local){if(field==='full_name')local.fullName=updated.full_name;if(field==='guardian_num')local.guardianNum=updated.guardian_num;epStore.setItem(DB_KEYS.PATIENTS,JSON.stringify(patients));}
