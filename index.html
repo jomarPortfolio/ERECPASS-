@@ -4275,6 +4275,15 @@ if (tabName === 'settings') document.getElementById('adminTabSettings').classLis
 
 }
 
+function adminPatientEsc(value) {
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
 async function renderAdminPatients() {
   const searchEl = document.getElementById('adminSearchPatient');
   const container = document.getElementById('adminPatientsTableList');
