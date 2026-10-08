@@ -10,14 +10,15 @@ async function getAdminClient(){
  if(pr.data?.role!=='admin'||pr.data?.active!==true||String(user.email||'').toLowerCase()!=='admin2@gmail.com') throw new Error('Please use the active admin2@gmail.com account.');
  return client;
 }
-window.updateApptStatus=async function(id,status){
+window.erecpassAdminAppointmentAction=async function(id,status){
  if(!id||!['Approved','Cancelled'].includes(status)) return;
  if(status==='Cancelled'&&!window.confirm('Cancel this appointment?\\nYou can’t undo this action.')) return;
  try{
   const client=await getAdminClient();
-  const raw=String(id).trim();
-  if(!/^\d+$/.test(raw)) throw new Error('Invalid appointment ID. Please refresh the list.');
+  const raw=String(id ?? '').trim();
+  if(!raw) throw new Error('Appointment ID is missing. Please refresh the list.');
   const appointmentId=Number(raw);
+  if(!Number.isSafeInteger(appointmentId) || appointmentId < 1) throw new Error('Invalid appointment ID. Please refresh the list.');
   const rpc=await client.rpc('admin_update_appointment_status',{p_appointment_id:appointmentId,p_status:status});
   if(rpc.error) throw rpc.error;
   if(!rpc.data) throw new Error('Appointment was not updated.');
