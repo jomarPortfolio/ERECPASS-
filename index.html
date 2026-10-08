@@ -8093,13 +8093,12 @@ window.renderAdminPatientChatList=async function(){
 
   const client=window.erecpassSupabase;
   try{
-    // Admin Chat Center uses the real account list so every active Patient
-    // and Staff account can be selected, even before a conversation exists.
+    // Admin Chat Center keeps every Patient and Staff account visible,
+    // including inactive accounts. Status is shown beside the account name.
     let accounts=[];
     const pr=await client.from('profiles')
       .select('id,full_name,role,active')
       .in('role',['patient','staff'])
-      .eq('active',true)
       .order('role',{ascending:true})
       .order('full_name',{ascending:true});
 
@@ -8113,8 +8112,8 @@ window.renderAdminPatientChatList=async function(){
     }else{
       // Safe fallback for older records if profiles cannot be read.
       const [patients,staff]=await Promise.all([
-        client.from('patients').select('user_id,full_name,email,active').eq('active',true),
-        client.from('staff').select('user_id,name,email,active').eq('active',true)
+        client.from('patients').select('user_id,full_name,email,active'),
+        client.from('staff').select('user_id,name,email,active')
       ]);
       (patients.data||[]).forEach(p=>accounts.push({
         user_id:p.user_id,full_name:p.full_name||p.email||'Patient',
@@ -8126,7 +8125,7 @@ window.renderAdminPatientChatList=async function(){
       }));
     }
 
-    accounts=accounts.filter(a=>a && a.user_id && a.active!==false);
+    accounts=accounts.filter(a=>a && a.user_id);
     const ids=accounts.map(a=>a.user_id);
 
     // Conversations are supplemental only; they never determine who appears.
@@ -8153,14 +8152,21 @@ window.renderAdminPatientChatList=async function(){
     box.innerHTML=accounts.map(a=>{
       const name=String(a.full_name||'Account').trim();
       const role=a.role==='staff'?'Staff':'Patient';
+      const isActive=a.active!==false;
+      const statusLabel=isActive?'Active':'Inactive';
+      const statusClass=isActive?'text-emerald-600':'text-rose-600';
+      const dotClass=isActive?'bg-emerald-500':'bg-rose-500';
       const last=latest[a.user_id];
       return '<button type="button" data-chat-patient="'+esc(a.user_id)+'" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1">'+
-        '<span class="text-white font-tech block">'+esc(name)+'</span>'+
+        '<span class="text-white font-tech flex items-center justify-between gap-2">'+
+          '<span class="truncate">'+esc(name)+'</span>'+
+          '<span class="'+statusClass+' text-[9px] font-bold inline-flex items-center gap-1 shrink-0"><span class="'+dotClass+' inline-block w-2 h-2 rounded-full"></span>'+statusLabel+'</span>'+
+        '</span>'+
         '<span class="text-[9px] text-cyan-300 block">'+role+'</span>'+
         '<span class="text-[10px] text-slate-300 block truncate">'+esc(last?.body||'No messages yet')+'</span>'+
         '<span class="text-[8px] text-slate-500">'+(last?.created_at?new Date(last.created_at).toLocaleString():'')+'</span>'+
         '</button>';
-    }).join('') || '<div class="text-xs text-slate-500 p-2">No active Patient or Staff accounts found.</div>';
+    }).join('') || '<div class="text-xs text-slate-500 p-2">No Patient or Staff accounts found.</div>';
   }catch(e){
     console.error('[ERecPass] Admin account chat list failed:',e);
     box.innerHTML='<div class="text-xs text-rose-400 p-2">Unable to load Patient/Staff accounts. Please refresh.</div>';
