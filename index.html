@@ -4033,6 +4033,21 @@ openAndroidCameraCapture();
 return;
 }
 
+function stopStaffQrScanner() {
+  try {
+    if (typeof staffHtml5QrCode !== 'undefined' && staffHtml5QrCode) {
+      Promise.resolve(staffHtml5QrCode.stop()).catch(() => {}).finally(() => {
+        try { staffHtml5QrCode.clear(); } catch (e) {}
+        try { staffHtml5QrCode = null; } catch (e) {}
+      });
+    }
+  } catch (e) {}
+  const reader = document.getElementById('staffQrReader');
+  if (reader) reader.innerHTML = '';
+  const card = document.getElementById('scannedPatientCard');
+  if (card) card.classList.add('hidden');
+}
+
 function handleScannedQrText(text) {
 
 let patientId = text.replace("ERECPASS:", "").trim();
