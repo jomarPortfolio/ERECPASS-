@@ -3497,20 +3497,58 @@ try {
   }
 
   container.innerHTML = myAppts.map(a => `
-    <div class="list-card p-3.5 rounded-xl flex items-center justify-between">
-      <div>
+    <div class="list-card p-3.5 rounded-xl flex items-center justify-between gap-3">
+      <div class="min-w-0 flex-1">
         <strong class="text-white text-xs block">${a.reason || 'Appointment'}</strong>
         <p class="text-[11px] text-slate-400"><i class="fa-solid fa-user-doctor mr-1"></i>${a.doctor || 'Doctor'}</p>
         <p class="text-[11px] text-cyan-400 mt-0.5"><i class="fa-regular fa-clock mr-1"></i>${a.appointment_date || ''}</p>
       </div>
-      <span class="px-2.5 py-1 bg-cyan-950/80 border border-cyan-400/40 text-cyan-300 rounded-full text-[10px] font-tech font-bold">${a.status || 'Pending Approval'}</span>
+      <div class="flex flex-col items-end gap-1.5 shrink-0">
+        <span class="px-2.5 py-1 bg-cyan-950/80 border border-cyan-400/40 text-cyan-300 rounded-full text-[10px] font-tech font-bold">${a.status || 'Pending Approval'}</span>
+        <button type="button"
+          class="px-2.5 py-1 bg-rose-950/80 border border-rose-400/40 text-rose-300 rounded-lg font-tech text-[10px] font-bold hover:bg-rose-900/80"
+          onclick="deletePatientAppointment('${a.id}')">
+          <i class="fa-solid fa-trash-can mr-1"></i> Delete
+        </button>
+      </div>
     </div>
   `).join('');
 } catch (e) {
   console.error('[ERecPass] Patient appointments:', e);
   container.innerHTML = '<p class="text-xs text-rose-300 p-2">Unable to load appointments. Please refresh.</p>';
 }
+
 }
+
+async function deletePatientAppointment(appointmentId) {
+  if (!appointmentId) return;
+
+  const confirmed = window.confirm(
+    'Delete this appointment?\nThis will permanently remove your booking.'
+  );
+  if (!confirmed) return;
+
+  try {
+    const client = window.erecpassSupabase;
+    const patientId = currentSession?.data?.id;
+    if (!client || !patientId) throw new Error('Appointment service is not ready.');
+
+    const { error } = await client
+      .from('appointments')
+      .delete()
+      .eq('id', appointmentId)
+      .eq('patient_id', String(patientId));
+
+    if (error) throw error;
+
+    await renderPatientAppointments();
+  } catch (e) {
+    console.error('[ERecPass] Patient delete appointment:', e);
+    alert('Could not delete your appointment: ' + (e.message || 'Please try again.'));
+  }
+}
+
+window.deletePatientAppointment = deletePatientAppointment;
 
 function renderPatientLabResults() {
 
