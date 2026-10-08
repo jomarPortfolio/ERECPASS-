@@ -4262,7 +4262,12 @@ if (tabName === 'agreement') document.getElementById('adminTabAgreement').classL
 
 if (tabName === 'appointments') document.getElementById('adminTabAppointments').classList.remove('hidden');
 
-if (tabName === 'chat') document.getElementById('adminTabChat').classList.remove('hidden');
+if (tabName === 'chat') {
+  document.getElementById('adminTabChat').classList.remove('hidden');
+  if (typeof window.renderAdminPatientChatList === 'function') {
+    window.renderAdminPatientChatList();
+  }
+}
 
 if (tabName === 'logs') document.getElementById('adminTabLogs').classList.remove('hidden');
 
@@ -7667,6 +7672,16 @@ setTimeout(installAddedUI,2500);
       const p=await S().from('patients').select('user_id,full_name,email,active').in('user_id',ids);
       if(p.error){ console.error('[ERecPass] Patient lookup failed:',p.error); return; }
       (p.data||[]).forEach(x=>info[x.user_id]=x);
+
+      // Fallback to profiles so a chat is not hidden when its patient row
+      // is missing or no longer matches the patient table.
+      const missingIds=ids.filter(id=>!info[id]);
+      if(missingIds.length){
+        const pf=await S().from('profiles').select('id,full_name').in('id',missingIds);
+        if(!pf.error) (pf.data||[]).forEach(x=>{
+          info[x.id]={user_id:x.id,full_name:x.full_name,email:'',active:true};
+        });
+      }
     }
     const cards=[];
     for(const conv of (r.data||[])){
