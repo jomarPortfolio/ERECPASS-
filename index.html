@@ -7448,7 +7448,8 @@ setTimeout(installAddedUI,2500);
         '<span class="text-[9px] text-slate-500 mt-0.5">'+stamp(m.created_at)+'</span>'+
       '</div>'+
       (canDelete && sideRight ? '<button type="button" class="erecpass-delete-btn" data-delete-message="'+esc(m.id)+'" title="Delete message" aria-label="Delete message"><i class="fa-solid fa-trash"></i></button>' : '')+
-    '</div>';\n  }
+    '</div>';
+  }
 
   function renderBox(id,messages,viewPatientId){
     const box=document.getElementById(id);
