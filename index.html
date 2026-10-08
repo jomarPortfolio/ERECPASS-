@@ -2118,6 +2118,8 @@ Already have an account?
 
 </div>
 
+<div class="text-[10px] text-cyan-300 font-bold uppercase tracking-wider">Patient Profile</div>
+
 <div class="grid grid-cols-2 gap-2 text-xs text-slate-300">
 
 <div><span class="text-slate-500">ID Number:</span> <strong id="scannedId">--</strong></div>
@@ -2125,6 +2127,10 @@ Already have an account?
 <div><span class="text-slate-500">Classification:</span> <strong id="scannedAge">--</strong></div>
 
 <div><span class="text-slate-500">Guardian Contact:</span> <strong id="scannedGuardian">--</strong></div>
+
+<div><span class="text-slate-500">Email:</span> <strong id="scannedEmail">--</strong></div>
+
+<div><span class="text-slate-500">SIM / Phone:</span> <strong id="scannedSim">--</strong></div>
 
 </div>
 
@@ -4117,13 +4123,52 @@ openAndroidCameraCapture();
 return;
 }
 
-function handleScannedQrText(text) {
+async function handleScannedQrText(text) {
 
 let patientId = text.replace("ERECPASS:", "").trim();
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
+let p = null;
 
-const p = patients.find(item => item.id === patientId || item.id === text);
+// Staff QR results now use the live Supabase patient record first,
+// so the displayed profile, photo, laboratory results and notes are current.
+try {
+  const client = window.erecpassSupabase;
+  if (client && patientId) {
+    const cloud = await client.from('patients').select('*').or('id.eq.' + patientId + ',user_id.eq.' + patientId).maybeSingle();
+    if (!cloud.error && cloud.data) {
+      const c = cloud.data;
+      p = {
+        id: c.id,
+        user_id: c.user_id,
+        fullName: c.full_name || c.name || 'Patient',
+        email: c.email || '',
+        sim: c.sim || '',
+        photo: c.photo || '',
+        ageCategory: c.age_category || '',
+        guardianNum: c.guardian_num || '',
+        status: c.status || 'Green',
+        labResults: c.lab_results || [],
+        prescriptions: c.prescriptions || [],
+        doctorNotes: c.doctor_notes || ''
+      };
+      try {
+        const cached = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || '[]');
+        const idx = cached.findIndex(x => String(x.id) === String(c.id));
+        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], p);
+        else cached.push(p);
+        epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(cached));
+      } catch (e) {}
+    }
+  }
+} catch (e) {
+  console.warn('[ERecPass] Staff QR cloud lookup:', e);
+}
+
+// Keep local-cache fallback for offline/older records.
+if (!p) {
+  const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
+  p = patients.find(item => item.id === patientId || item.id === text) || null;
+}
 
 if (p) {
 
@@ -4141,23 +4186,29 @@ if (patientPhoto) {
   }
 }
 
-document.getElementById('scannedName').innerText = p.fullName;
+document.getElementById('scannedName').innerText = p.fullName || p.full_name || 'Patient';
 
-document.getElementById('scannedId').innerText = p.id;
+document.getElementById('scannedId').innerText = p.id || '--';
 
-document.getElementById('scannedAge').innerText = p.ageCategory || "Adult";
+document.getElementById('scannedAge').innerText = p.ageCategory || p.age_category || "Adult";
 
-document.getElementById('scannedGuardian').innerText = p.guardianNum || "None";
+document.getElementById('scannedGuardian').innerText = p.guardianNum || p.guardian_num || "None";
 
-document.getElementById('scannedStatusBadge').innerText = p.status;
+const emailEl = document.getElementById('scannedEmail');
+if (emailEl) emailEl.innerText = p.email || '--';
 
-document.getElementById('scannedStatusBadge').className = p.status === 'Green' ? "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500" : (p.status === 'Yellow' ? "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500" : "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-500");
+const simEl = document.getElementById('scannedSim');
+if (simEl) simEl.innerText = p.sim || '--';
 
-const labs = p.labResults || [];
+document.getElementById('scannedStatusBadge').innerText = p.status || 'Green';
 
-document.getElementById('scannedLabResults').innerText = labs.length ? labs[labs.length-1].result : "No lab results on record.";
+document.getElementById('scannedStatusBadge').className = (p.status || 'Green') === 'Green' ? "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500" : ((p.status || 'Green') === 'Yellow' ? "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500" : "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-500");
 
-document.getElementById('scannedDoctorNote').innerText = p.doctorNotes || "No active doctor notes.";
+const labs = p.labResults || p.lab_results || [];
+
+document.getElementById('scannedLabResults').innerText = labs.length ? (labs[labs.length-1].result || labs[labs.length-1].text || 'Laboratory result available.') : "No lab results on record.";
+
+document.getElementById('scannedDoctorNote').innerText = p.doctorNotes || p.doctor_notes || "No active doctor notes.";
 
 } else {
 
