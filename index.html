@@ -7790,345 +7790,65 @@ setTimeout(installAddedUI,2500);
   window.sendPatientChatFile=()=>alert('Text messaging is ready.');
 
   window.renderAdminPatientChatList=async function(){
-    const box=document.getElementById('adminPatientChatList');
-    if(!box||!S()||!['admin','staff'].includes(currentSession?.role)) return;
-    const r=await S().from('message_conversations').select('id,patient_id,status,updated_at').order('updated_at',{ascending:false});
-    if(r.error){ console.error('[ERecPass] Chat inbox load failed:',r.error); return; }
-    const ids=[...new Set((r.data||[]).map(x=>x.patient_id).filter(Boolean))];
-    let info={};
-    if(ids.length){
-      const p=await S().from('patients').select('user_id,full_name,email,active').in('user_id',ids);
-      if(p.error){ console.error('[ERecPass] Patient lookup failed:',p.error); return; }
-      (p.data||[]).forEach(x=>info[x.user_id]=x);
-    }
-    const cards=[];
-    for(const conv of (r.data||[])){
-      const p=info[conv.patient_id];
-      if(!p || p.active===false) continue;
-      const m=await S().from('message_messages').select('body,created_at').eq('conversation_id',conv.id).order('created_at',{ascending:false}).limit(1);
-      const last=m.data?.[0];
-      cards.push('<button type="button" data-chat-patient="'+esc(p.user_id)+'" class="w-full text-left p-3 bg-slate-900 rounded-xl hover:bg-cyan-950 cursor-pointer text-xs mb-1">'+
-        '<span class="text-white font-tech block">'+esc(p.full_name||'Patient')+'</span>'+
-        '<span class="text-[9px] text-cyan-300 block">'+esc(p.email||'No email')+'</span>'+
-        '<span class="text-[10px] text-slate-400 block truncate">'+esc(last?.body||'No messages yet')+'</span>'+
-        '<span class="text-[8px] text-slate-500">'+stamp(last?.created_at||conv.updated_at)+'</span></button>');
-    }
-    box.innerHTML=cards.join('')||'<div class="text-xs text-slate-500 p-2">No patient conversations yet.</div>';
-  };
-
-  document.addEventListener('click',function(ev){
-    const btn=ev.target?.closest?.('[data-chat-patient]');
-    if(!btn) return;
-    ev.preventDefault();
-    window.selectAdminChatPatient(btn.getAttribute('data-chat-patient'));
-  },true);
-
-  window.selectAdminChatPatient=async function(patientId){
-    selectedPatientId=patientId;
-    renderToken++;
-    try { window.sessionStorage?.setItem('erecpassSelectedChatPatient',patientId); } catch(e){}
-    const header=document.getElementById('adminSelectedChatHeader');
-    if(header){
-      const p=await S().from('patients').select('full_name,email').eq('user_id',patientId).maybeSingle();
-      header.innerText='Chatting with: '+(p.data?.full_name||'Patient')+' · '+(p.data?.email||'');
-    }
-    await renderAdmin();
-  };
-
-  window.renderAdminChatMessages=renderAdmin;
-  window.sendAdminChatMessage=async function(){
-    const input=document.getElementById('adminChatInput');
-    const body=(input?.value||'').trim();
-    if(!selectedPatientId) return alert('Please select a patient first.');
-    if(!body) return;
-    const button=input?.parentElement?.querySelector('button');
-    try {
-      if(button) button.disabled=true;
-      const uid=await ensureAuthUserId();
-      const c=await getConversation(selectedPatientId);
-      const r=await S().from('message_messages').insert({
-        conversation_id:c.id,
-        sender_id:uid,
-        body:body
-      }).select('id,conversation_id,sender_id,body,created_at,read_at').single();
-      if(r.error) throw r.error;
-      const cr=await S().from('message_conversations').update({
-        status:'Open',
-        updated_at:new Date().toISOString()
-      }).eq('id',c.id);
-      if(cr.error) throw cr.error;
-      if(input) input.value='';
-      await renderAdmin();
-      await window.renderAdminPatientChatList();
-    } catch(e) {
-      console.error('[ERecPass] Admin chat send failed:',e);
-      alert('Hindi naipadala ang reply. '+(e?.message||'Pakisubukan ulit.'));
-    } finally {
-      if(button) button.disabled=false;
-    }
-  };
-
-  function boot(){
-    let tries=0;
-    const load=async()=>{
-      tries++;
-      try {
-        if(!S()||!currentSession?.role){
-          if(tries<30) setTimeout(load,500);
-          return;
-        }
-        if(['admin','staff'].includes(currentSession.role)){
-          await window.renderAdminPatientChatList();
-          const saved=window.sessionStorage?.getItem('erecpassSelectedChatPatient');
-          if(saved) await window.selectAdminChatPatient(saved);
-        } else if(currentSession.role==='patient'){
-          await window.window.renderPatientChatMessages?.();
-        }
-      } catch(e) {
-        console.error('[ERecPass] Chat boot failed:',e);
-        if(tries<30) setTimeout(load,500);
-      }
-    };
-    setTimeout(load,300);
-  }
-
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
-  else boot();
-  window.addEventListener('erecpass:session-ready',boot);
-  window.addEventListener('pageshow',boot);
-})();
-</script>
-
-
-<!-- ERECPASS FINAL ADMIN APPOINTMENT ACTION FIX -->
-<script>
-(function(){
-'use strict';
-async function adminApptAction(id,status){
- try{
-  const client=window.erecpassSupabase;
-  if(!client?.auth)throw new Error('Supabase is not ready. Please refresh the app.');
-  if(id===undefined||id===null||String(id)==='')throw new Error('Appointment ID is missing.');
-  if(status!=='Approved'&&status!=='Cancelled')throw new Error('Invalid appointment status.');
-  const {data:{user},error:authError}=await client.auth.getUser();
-  if(authError)throw authError;
-  if(!user?.id)throw new Error('Admin login session expired. Please log in again.');
-  const {data:profile,error:profileError}=await client.from('profiles').select('id,role,active').eq('id',user.id).maybeSingle();
-  if(profileError)throw profileError;
-  if(profile?.role!=='admin'||profile?.active!==true)throw new Error('This account is not an active Admin account.');
-  const {data:updated,error:updateError}=await client.rpc('admin_update_appointment_status',{p_appointment_id:Number(id),p_status:status});
-  if(updateError)throw updateError;
-  if(!updated)throw new Error('No appointment was updated. Please refresh the list and try again.');
-  await window.renderAdminAppointmentsList();
- }catch(e){console.error('[ERecPass] Admin appointment action failed:',e);alert('Could not update appointment: '+(e?.message||'Please try again.'));}
-}
-window.updateApptStatus=adminApptAction;
-window.renderAdminAppointmentsList=async function(){
- const container=document.getElementById('adminAppointmentsList');if(!container)return;
- container.innerHTML='<p class="text-xs text-slate-400 p-2">Loading appointments...</p>';
- try{
-  const client=window.erecpassSupabase;if(!client)throw new Error('Supabase is not ready.');
-  const {data,error}=await client.from('appointments').select('id,patient_id,patient_name,doctor,appointment_date,reason,status,updated_at').order('appointment_date',{ascending:true});
-  if(error)throw error;const appts=data||[];
-  if(!appts.length){container.innerHTML='<p class="text-xs text-slate-400 p-2">No appointments found.</p>';return;}
-  container.innerHTML=appts.map(function(a){
-   const status=a.status||'Pending Approval',id=String(a.id),final=status==='Approved'||status==='Cancelled';
-   return '<div class="glass-card p-3 rounded-xl flex justify-between items-center text-xs"><div><strong class="text-white block">'+(a.patient_name||'Patient')+' - '+(a.reason||'Appointment')+'</strong><p class="text-slate-400">Doctor: '+(a.doctor||'—')+' · Date: '+(a.appointment_date||'—')+'</p><span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-slate-900/70 text-cyan-300 text-[9px] font-tech">'+status+'</span></div><div class="flex gap-1 flex-wrap justify-end"><button type="button" data-erecpass-appt-action="approve" data-appt-id="'+id+'" '+(final?'disabled':'')+' class="px-2 py-1 bg-emerald-950 text-emerald-300 rounded font-tech text-[10px] '+(final?'opacity-40 cursor-not-allowed':'')+'">Approve</button><button type="button" data-erecpass-appt-action="cancel" data-appt-id="'+id+'" '+(final?'disabled':'')+' class="px-2 py-1 bg-rose-950 text-rose-300 rounded font-tech text-[10px] '+(final?'opacity-40 cursor-not-allowed':'')+'">Cancel</button><button type="button" data-erecpass-appt-delete="'+id+'" class="px-2 py-1 bg-slate-800 text-slate-300 rounded font-tech text-[10px]">Delete</button></div></div>';
-  }).join('');
- }catch(e){console.error('[ERecPass] Admin appointments:',e);container.innerHTML='<p class="text-xs text-rose-300 p-2">Unable to load appointments. Please refresh.</p>';}
-};
-document.addEventListener('click',function(ev){
- const btn=ev.target?.closest?.('[data-erecpass-appt-action]');if(!btn)return;
- ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();if(btn.disabled)return;
- adminApptAction(btn.getAttribute('data-appt-id'),btn.getAttribute('data-erecpass-appt-action')==='approve'?'Approved':'Cancelled');
-},true);
-document.addEventListener('click',function(ev){
- const btn=ev.target?.closest?.('[data-erecpass-appt-delete]');if(!btn)return;
- ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();
- if(typeof window.deleteAppt==='function')window.deleteAppt(btn.getAttribute('data-erecpass-appt-delete'));
-},true);
-})();
-</script>
-
-<!-- ERECPASS PATIENT PROFILE CLOUD SAVE FIX -->
-<script>
-(function(){
-  async function savePatientField(field,value,successMessage){
-    const client=window.erecpassSupabase, patientId=currentSession?.data?.id;
-    if(!client||!patientId) throw new Error('Patient account service is not ready. Please refresh and try again.');
-    const clean=String(value??'').trim();
-    if(!clean) throw new Error(field==='full_name'?'Please enter your full name.':'Please enter the emergency contact/guardian.');
-    const {data:authData,error:authError}=await client.auth.getUser();
-    if(authError) throw authError;
-    if(!authData?.user?.id) throw new Error('Your login session expired. Please log in again.');
-    const updatePayload={};
-    updatePayload[field]=clean;
-    const {error:updateError}=await client.from('patients')
-      .update(updatePayload)
-      .eq('user_id',authData.user.id);
-    if(updateError) throw updateError;
-    const {data:updated,error:readError}=await client.from('patients').select('id,full_name,guardian_num').eq('user_id',authData.user.id).maybeSingle();
-    if(readError) throw readError;
-    if(!updated) throw new Error('Your profile was not updated. Please refresh and try again.');
-    const patients=JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)||'[]'), local=patients.find(p=>String(p.id)===String(patientId));
-    if(local){if(field==='full_name')local.fullName=updated.full_name;if(field==='guardian_num')local.guardianNum=updated.guardian_num;epStore.setItem(DB_KEYS.PATIENTS,JSON.stringify(patients));}
-    if(currentSession?.data){if(field==='full_name')currentSession.data.fullName=updated.full_name;if(field==='guardian_num')currentSession.data.guardianNum=updated.guardian_num;epStore.setItem(DB_KEYS.SESSION,JSON.stringify(currentSession));}
-    if(typeof refreshPatientPortal==='function') await refreshPatientPortal();
-    alert(successMessage);
-  }
-  window.saveProfileName=async function(){try{await savePatientField('full_name',document.getElementById('editProfileNameInput')?.value,'Name updated successfully.');}catch(e){console.error('[ERecPass] Save patient name:',e);alert('Could not save your name: '+(e.message||'Please try again.'));}};
-  window.saveGuardianContact=async function(){try{await savePatientField('guardian_num',document.getElementById('editGuardianContactInput')?.value,'Emergency contact/guardian updated successfully.');}catch(e){console.error('[ERecPass] Save guardian contact:',e);alert('Could not save the emergency contact/guardian: '+(e.message||'Please try again.'));}};
-})();
-</script>
-<!-- ERECPASS CHAT VISIBILITY + DELETE FIX -->
-<script>
-(function(){
-'use strict';
-const chatFixState={timer:null};
-function chatClient(){return window.erecpassSupabase;}
-async function refreshPatientChat(){
-  try{
-    if(currentSession?.role!=='patient'||!chatClient()) return;
-    if(typeof window.renderPatientChatMessages==='function') await window.renderPatientChatMessages();
-  }catch(e){console.error('[ERecPass] Chat refresh failed:',e);}
-}
-async function refreshAdminChat(){
-  try{
-    if(!['admin','staff'].includes(currentSession?.role)||!chatClient()) return;
-    if(typeof window.renderAdminChatMessages==='function' && window.sessionStorage?.getItem('erecpassSelectedChatPatient')){
-      await window.renderAdminChatMessages();
-    }
-    if(typeof window.renderAdminPatientChatList==='function') await window.renderAdminPatientChatList();
-  }catch(e){console.error('[ERecPass] Admin chat refresh failed:',e);}
-}
-function startChatRefresh(){
-  if(chatFixState.timer) clearInterval(chatFixState.timer);
-  chatFixState.timer=setInterval(function(){
-    if(currentSession?.role==='patient') refreshPatientChat();
-    else if(['admin','staff'].includes(currentSession?.role)) refreshAdminChat();
-  },3000);
-}
-function bootChatFix(){
-  startChatRefresh();
-  if(currentSession?.role==='patient') refreshPatientChat();
-  else if(['admin','staff'].includes(currentSession?.role)) refreshAdminChat();
-}
-document.addEventListener('DOMContentLoaded',bootChatFix);
-window.addEventListener('pageshow',bootChatFix);
-window.addEventListener('erecpass:session-ready',bootChatFix);
-document.addEventListener('visibilitychange',function(){if(!document.hidden)bootChatFix();},false);
-
-// Fix the existing patient-chat boot typo without replacing the existing chat system.
-window.addEventListener('erecpass:session-ready',function(){
-  if(currentSession?.role==='patient') setTimeout(refreshPatientChat,250);
-});
-
-// Keep delete-message behavior available for every rendered message.
-document.addEventListener('click',function(ev){
-  const btn=ev.target?.closest?.('[data-delete-message]');
-  if(!btn||typeof window.deleteErecpassMessage!=='function') return;
-  ev.preventDefault();
-  ev.stopPropagation();
-  if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-  window.deleteErecpassMessage(btn.getAttribute('data-delete-message'),btn);
-},true);
-})();
-</script>
-<!-- STAFF ADMIN CHAT: additive only -->
-<style id="staff-admin-chat-style">
-#staffAdminChatBox .erecpass-chat-message-wrap{margin-bottom:.35rem}
-#staffAdminChatBox .erecpass-chat-message-wrap .bot-message{color:#e2e8f0 !important;opacity:1 !important;visibility:visible !important}
-</style>
-<script>
-(function(){
-'use strict';
-async function staffChatConversation(uid){
-  const client=window.erecpassSupabase;
-  if(!client||!uid) throw new Error('Supabase chat is not ready.');
-  let r=await client.from('message_conversations').select('*').eq('patient_id',uid).order('created_at',{ascending:true}).limit(1);
-  if(r.error) throw r.error;
-  if(r.data&&r.data[0]) return r.data[0];
-  r=await client.from('message_conversations').insert({patient_id:uid,subject:'Staff to Admin Support',status:'Open'}).select('*').single();
-  if(r.error) throw r.error;
-  return r.data;
-}
-async function renderStaffAdminChat(){
-  const box=document.getElementById('staffAdminChatBox');
-  if(!box||currentSession?.role!=='staff'||!window.erecpassSupabase) return;
-  try{
-    const uid=await ensureAuthUserId();
-    const c=await staffChatConversation(uid);
-    const r=await window.erecpassSupabase.from('message_messages').select('id,conversation_id,sender_id,body,created_at').eq('conversation_id',c.id).order('created_at',{ascending:true});
-    if(r.error) throw r.error;
-    box.innerHTML=(r.data||[]).map(m=>{
-      const mine=m.sender_id===uid;
-      const safe=typeof esc==='function'?esc(m.body):String(m.body).replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[x]));
-      return '<div class="flex flex-col '+(mine?'items-end':'items-start')+'"><div class="'+(mine?'bg-cyan-500 text-slate-950 font-semibold':'bot-message text-slate-200')+' p-2 rounded-xl max-w-[85%]">'+safe+'</div><span class="text-[9px] text-slate-500 mt-0.5">'+new Date(m.created_at).toLocaleString([],{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'})+'</span></div>';
-    }).join('')||'<div class="text-xs text-slate-500 text-center py-8">No messages yet.</div>';
-    box.scrollTop=box.scrollHeight;
-  }catch(e){console.error('[ERecPass] Staff admin chat load failed:',e);}
-}
-window.sendStaffAdminMessage=async function(){
-  const input=document.getElementById('staffAdminChatInput');
-  const body=(input?.value||'').trim();
-  if(!body||currentSession?.role!=='staff') return;
-  const button=input?.parentElement?.querySelector('button');
-  try{
-    if(button) button.disabled=true;
-    const uid=await ensureAuthUserId();
-    const c=await staffChatConversation(uid);
-    const r=await window.erecpassSupabase.from('message_messages').insert({conversation_id:c.id,sender_id:uid,body}).select('id').single();
-    if(r.error) throw r.error;
-    await window.erecpassSupabase.from('message_conversations').update({status:'Open',updated_at:new Date().toISOString()}).eq('id',c.id);
-    input.value='';
-    await renderStaffAdminChat();
-  }catch(e){console.error('[ERecPass] Staff admin chat send failed:',e);alert('Hindi naipadala ang message. '+(e?.message||'Pakisubukan ulit.'));}
-  finally{if(button) button.disabled=false;}
-};
-window.renderStaffAdminChat=renderStaffAdminChat;
-const oldRenderAdminList=window.renderAdminPatientChatList;
-window.renderAdminPatientChatList=async function(){
   const box=document.getElementById('adminPatientChatList');
   if(!box||!window.erecpassSupabase||!['admin','staff'].includes(currentSession?.role)) return;
 
   const client=window.erecpassSupabase;
   try{
-    // Admin Chat Center keeps every Patient and Staff account visible,
-    // including inactive accounts. Status is shown beside the account name.
+    // Load Patient and Staff records directly so inactive accounts are still
+    // visible. This avoids depending on the profiles SELECT policy.
     let accounts=[];
-    const pr=await client.from('profiles')
-      .select('id,full_name,role,active')
-      .in('role',['patient','staff'])
-      .order('role',{ascending:true})
-      .order('full_name',{ascending:true});
+    const [patients,staff]=await Promise.all([
+      client.from('patients').select('user_id,full_name,email,active').order('full_name',{ascending:true}),
+      client.from('staff').select('user_id,name,email,active').order('name',{ascending:true})
+    ]);
 
-    if(!pr.error && Array.isArray(pr.data)){
-      accounts=pr.data.map(p=>({
-        user_id:p.id,
-        full_name:p.full_name||'',
-        role:p.role,
+    if(!patients.error){
+      (patients.data||[]).forEach(p=>accounts.push({
+        user_id:p.user_id,
+        full_name:p.full_name||p.email||'Patient',
+        email:p.email||'',
+        role:'patient',
         active:p.active!==false
       }));
-    }else{
-      // Safe fallback for older records if profiles cannot be read.
-      const [patients,staff]=await Promise.all([
-        client.from('patients').select('user_id,full_name,email,active'),
-        client.from('staff').select('user_id,name,email,active')
-      ]);
-      (patients.data||[]).forEach(p=>accounts.push({
-        user_id:p.user_id,full_name:p.full_name||p.email||'Patient',
-        email:p.email||'',role:'patient',active:p.active!==false
-      }));
-      (staff.data||[]).forEach(p=>accounts.push({
-        user_id:p.user_id,full_name:p.name||p.email||'Staff',
-        email:p.email||'',role:'staff',active:p.active!==false
+    }
+    if(!staff.error){
+      (staff.data||[]).forEach(s=>accounts.push({
+        user_id:s.user_id,
+        full_name:s.name||s.email||'Staff',
+        email:s.email||'',
+        role:'staff',
+        active:s.active!==false
       }));
     }
 
-    accounts=accounts.filter(a=>a && a.user_id);
-    const ids=accounts.map(a=>a.user_id);
+    // If older records are not present in the two role tables, supplement
+    // from profiles without allowing a profiles error to break the list.
+    if(!accounts.length){
+      const pr=await client.from('profiles')
+        .select('id,full_name,role,active')
+        .in('role',['patient','staff'])
+        .order('role',{ascending:true})
+        .order('full_name',{ascending:true});
+      if(!pr.error && Array.isArray(pr.data)){
+        accounts=pr.data.map(p=>({
+          user_id:p.id,
+          full_name:p.full_name||'Account',
+          email:'',
+          role:p.role,
+          active:p.active!==false
+        }));
+      }
+    }
 
-    // Conversations are supplemental only; they never determine who appears.
+    accounts=accounts.filter(a=>a && a.user_id);
+    accounts.sort((a,b)=>{
+      const roleA=a.role==='patient'?0:1, roleB=b.role==='patient'?0:1;
+      if(roleA!==roleB) return roleA-roleB;
+      return String(a.full_name||'').localeCompare(String(b.full_name||''));
+    });
+
+    const ids=accounts.map(a=>a.user_id);
     let conversations=[];
     if(ids.length){
       const cr=await client.from('message_conversations')
@@ -8141,12 +7861,16 @@ window.renderAdminPatientChatList=async function(){
     const latest={};
     for(const conv of conversations){
       if(latest[conv.patient_id]) continue;
-      const mr=await client.from('message_messages')
-        .select('body,created_at')
-        .eq('conversation_id',conv.id)
-        .order('created_at',{ascending:false})
-        .limit(1);
-      latest[conv.patient_id]=mr.data?.[0]||null;
+      try{
+        const mr=await client.from('message_messages')
+          .select('body,created_at')
+          .eq('conversation_id',conv.id)
+          .order('created_at',{ascending:false})
+          .limit(1);
+        latest[conv.patient_id]=mr.error?null:(mr.data?.[0]||null);
+      }catch(e){
+        latest[conv.patient_id]=null;
+      }
     }
 
     box.innerHTML=accounts.map(a=>{
@@ -8172,6 +7896,7 @@ window.renderAdminPatientChatList=async function(){
     box.innerHTML='<div class="text-xs text-rose-400 p-2">Unable to load Patient/Staff accounts. Please refresh.</div>';
   }
 };
+
 window.selectAdminChatPatient=async function(targetId){
   try{ window.sessionStorage?.setItem('erecpassSelectedChatPatient',targetId); }catch(e){}
   const header=document.getElementById('adminSelectedChatHeader');
