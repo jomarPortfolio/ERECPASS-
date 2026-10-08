@@ -7374,7 +7374,18 @@ setTimeout(installAddedUI,2500);
 
   const S = () => window.erecpassSupabase;
   const currentUserId = () => {
-    try { return window.currentSession?.data?.user_id || null; } catch(e) { return null; }
+    try {
+      const d = window.currentSession?.data || {};
+      return d.user_id || d.auth_id || (typeof d.id === 'string' && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(d.id) ? d.id : null);
+    } catch(e) { return null; }
+  };
+  const getAuthUserId = async () => {
+    const client = S();
+    if (!client) throw new Error('Supabase is not ready.');
+    const { data, error } = await client.auth.getUser();
+    if (error) throw error;
+    if (!data?.user?.id) throw new Error('Your Supabase login session is missing. Please log in again.');
+    return data.user.id;
   };
   const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const stamp = v => { try { return new Date(v).toLocaleString([],{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch(e){ return ''; } };
@@ -7499,9 +7510,9 @@ setTimeout(installAddedUI,2500);
   window.sendPatientMessage=async function(){
     const input=document.getElementById('patientChatInput');
     const body=(input?.value||'').trim();
-    const uid=currentUserId();
-    if(!body||!uid||!S()) return;
+    if(!body) return;
     try {
+      const uid=await getAuthUserId();
       const c=await getConversation(uid);
       const r=await S().from('message_messages').insert({
         conversation_id:c.id,sender_id:uid,body
@@ -7551,12 +7562,12 @@ setTimeout(installAddedUI,2500);
 
   window.renderAdminChatMessages=renderAdmin;
   window.sendAdminChatMessage=async function(){
-    const uid=currentUserId();
     const input=document.getElementById('adminChatInput');
     const body=(input?.value||'').trim();
-    if(!selectedPatientId||!uid||!S()) return alert('Please select a patient first.');
+    if(!selectedPatientId) return alert('Please select a patient first.');
     if(!body) return;
     try {
+      const uid=await getAuthUserId();
       const c=await getConversation(selectedPatientId);
       const r=await S().from('message_messages').insert({
         conversation_id:c.id,sender_id:uid,body
