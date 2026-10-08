@@ -4862,12 +4862,19 @@ try {
   const client = window.erecpassSupabase;
   if (!client?.auth) throw new Error('Supabase is not ready. Please refresh the app.');
 
-  if (!id) throw new Error('Appointment ID is missing.');
+  const appointmentId = Number(String(id ?? '').trim());
+  if (!Number.isSafeInteger(appointmentId) || appointmentId < 1) {
+    throw new Error('Invalid appointment ID. Please refresh the appointment list.');
+  }
+
   if (status !== 'Approved' && status !== 'Cancelled') {
     throw new Error('Invalid appointment status.');
   }
 
-  // Always use the real Supabase Auth session. Do not rely on the local app session.
+  if (status === 'Cancelled' && !window.confirm('Cancel this appointment?\\nYou can’t undo this action.')) {
+    return;
+  }
+
   const { data: authData, error: authError } = await client.auth.getUser();
   if (authError) throw authError;
   const authUser = authData?.user;
@@ -4884,32 +4891,27 @@ try {
     throw new Error('This account is not an active Admin account.');
   }
 
-  const { data: updated, error } = await client
+  const { data: updated, error: updateError } = await client
     .from('appointments')
     .update({
       status: status,
       updated_at: new Date().toISOString()
     })
-    .eq('id', String(id))
+    .eq('id', appointmentId)
     .select('id,status,updated_at')
     .maybeSingle();
 
-  if (error) throw error;
+  if (updateError) throw updateError;
   if (!updated) {
-    throw new Error('The appointment was not updated. Please refresh the appointment list and try again.');
+    throw new Error('Appointment was not updated. Please refresh the appointment list.');
   }
 
   await renderAdminAppointmentsList();
-
-  if (typeof renderPatientAppointments === 'function' && currentSession?.role === 'patient') {
-    await renderPatientAppointments();
-  }
 } catch (e) {
   console.error('[ERecPass] Update appointment:', e);
-  alert('Could not update appointment: ' + (e.message || 'Please try again.'));
+  alert('Could not update appointment: ' + (e?.message || 'Please try again.'));
 }
 }
-
 async function deleteAppt(id) {
 if (!confirm('Delete Appointment?\\nThis will permanently remove the patient\'s booking.')) return;
 try {
@@ -8237,7 +8239,7 @@ setTimeout(()=>{if(currentSession?.role==='staff') renderStaffAdminChat();},1000
 </script>
 <!-- END ERECPASS PATIENT PROFILE FINAL RESTORE -->
 <!-- ERECPASS SUPABASE ADMIN APPOINTMENT ACTIONS -->
-<script src="./admin-appointment-supabase-fix.js?v=f05a40"></script>
+<script src="./admin-appointment-supabase-fix.js?v=945a15"></script>
 </body>
 </html>
 <!-- ERECPASS SUPABASE ADMIN CHAT REPLY OVERRIDE -->
