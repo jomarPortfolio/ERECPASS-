@@ -23,7 +23,7 @@
         put(K.E,map.emergency_numbers||{barangay:'0917-123-4567',national:'911'});
         if(window.applySystemLogo) window.applySystemLogo(branding.logo_url||branding.logo||'');
       } else {
-        err('read public branding',brandingRes.error);
+        err('read public branding',publicSettingsRes.error);
       }
       const sr=await sb().auth.getSession();if(sr.error)throw sr.error;
       const u=sr.data.session?.user;
