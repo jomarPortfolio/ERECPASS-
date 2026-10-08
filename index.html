@@ -4275,46 +4275,94 @@ if (tabName === 'settings') document.getElementById('adminTabSettings').classLis
 
 }
 
-function renderAdminPatients() {
+async function renderAdminPatients() {
+  const searchEl = document.getElementById('adminSearchPatient');
+  const container = document.getElementById('adminPatientsTableList');
+  if(!container) return;
 
-const search = document.getElementById('adminSearchPatient').value.toLowerCase();
+  const search = String(searchEl?.value || '').trim().toLowerCase();
+  container.innerHTML = '<p class="text-xs text-slate-400 p-2">Loading patient records...</p>';
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)) || [];
+  try {
+    const client = window.erecpassSupabase;
+    if(!client) throw new Error('Supabase is not ready. Please refresh the app.');
 
-const container = document.getElementById('adminPatientsTableList');
+    const auth = await client.auth.getUser();
+    if(auth.error) throw auth.error;
+    if(!auth.data?.user?.id) throw new Error('Admin login session expired. Please log in again.');
 
-container.innerHTML = "";
+    const profileResult = await client.from('profiles').select('id,role,active');
+    if(profileResult.error) throw profileResult.error;
 
-patients.filter(p => p.fullName.toLowerCase().includes(search) || p.id.toLowerCase().includes(search) || p.status.toLowerCase().includes(search)).forEach(p => {
+    const patientUserIds = new Set(
+      (profileResult.data || [])
+        .filter(x => x?.role === 'patient')
+        .map(x => String(x.id))
+    );
 
-container.innerHTML += `
+    const result = await client.from('patients')
+      .select('id,user_id,full_name,email,sim,photo,age_category,guardian_num,status,lab_results,prescriptions,doctor_notes,online,created_at,updated_at,active')
+      .order('full_name',{ascending:true});
 
-<div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-cyan-500/20">
+    if(result.error) throw result.error;
 
-<div>
+    const cloudPatients = (result.data || [])
+      .filter(p => p?.user_id && patientUserIds.has(String(p.user_id)));
 
-<div class="flex items-center gap-2">
+    const patients = cloudPatients.map(p => ({
+      id: p.id,
+      user_id: p.user_id,
+      fullName: p.full_name || 'Unnamed Patient',
+      email: p.email || '',
+      sim: p.sim || '',
+      photo: p.photo || '',
+      ageCategory: p.age_category || '',
+      guardianNum: p.guardian_num || '',
+      status: p.status || 'Green',
+      labResults: Array.isArray(p.lab_results) ? p.lab_results : [],
+      prescriptions: Array.isArray(p.prescriptions) ? p.prescriptions : [],
+      doctorNotes: p.doctor_notes || '',
+      online: p.online === true,
+      createdAt: p.created_at || '',
+      updatedAt: p.updated_at || '',
+      active: p.active !== false
+    }));
 
-<strong class="text-white text-sm font-tech">${p.fullName}</strong>
+    // Keep the local cache synchronized for existing edit/save functions.
+    epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
 
-<span class="text-[10px] px-2 py-0.5 rounded font-bold ${p.status === 'Green' ? 'bg-emerald-950 text-emerald-300' : (p.status === 'Yellow' ? 'bg-amber-950 text-amber-300' : 'bg-rose-950 text-rose-300')}">${p.status}</span>
+    const visible = patients.filter(p => {
+      const haystack = [
+        p.fullName, p.id, p.email, p.status, p.guardianNum
+      ].map(v => String(v || '').toLowerCase()).join(' ');
+      return !search || haystack.includes(search);
+    });
 
-</div>
+    container.innerHTML = visible.length ? visible.map(p => `
+      <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-cyan-500/20">
+        <div>
+          <div class="flex items-center gap-2">
+            <strong class="text-white text-sm font-tech">${esc(p.fullName)}</strong>
+            <span class="text-[10px] px-2 py-0.5 rounded font-bold ${p.status === 'Green' ? 'bg-emerald-950 text-emerald-300' : (p.status === 'Yellow' ? 'bg-amber-950 text-amber-300' : 'bg-rose-950 text-rose-300')}">${esc(p.status)}</span>
+            ${p.active === false ? '<span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-bold">INACTIVE</span>' : ''}
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">ID: ${esc(p.id)} · Email: ${esc(p.email)}</p>
+          <p class="text-[11px] text-slate-400">Guardian Contact: ${esc(p.guardianNum || 'None')}</p>
+        </div>
+        <button onclick="openAdminEditPatientModal('${esc(p.id)}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900 self-start sm:self-auto">Edit Patient File</button>
+      </div>
+    `).join('') : '<div class="text-xs text-slate-500 p-2">No patient records found.</div>';
 
-<p class="text-xs text-slate-400 mt-0.5">ID: ${p.id} · Email: ${p.email}</p>
-
-<p class="text-[11px] text-slate-400">Guardian Contact: ${p.guardianNum || 'None'}</p>
-
-</div>
-
-<button onclick="openAdminEditPatientModal('${p.id}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900 self-start sm:self-auto">Edit Patient File</button>
-
-</div>
-
-`;
-
-});
-
+    const total = document.getElementById('adminTotalPatients');
+    const pending = document.getElementById('adminPendingCount');
+    const highRisk = document.getElementById('adminHighRiskCount');
+    if(total) total.innerText = patients.length;
+    if(pending) pending.innerText = patients.filter(p => p.status === 'Yellow').length;
+    if(highRisk) highRisk.innerText = patients.filter(p => p.status === 'Red').length;
+  } catch(e) {
+    console.error('[ERecPass] Admin patient list load failed:', e);
+    container.innerHTML = '<p class="text-xs text-rose-300 p-2">Unable to load patient records from Supabase. Please refresh.</p>';
+  }
 }
 
 function openAdminEditPatientModal(patientId) {
