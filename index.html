@@ -7827,5 +7827,59 @@ document.addEventListener('click',function(ev){
   window.saveGuardianContact=async function(){try{await savePatientField('guardian_num',document.getElementById('editGuardianContactInput')?.value,'Emergency contact/guardian updated successfully.');}catch(e){console.error('[ERecPass] Save guardian contact:',e);alert('Could not save the emergency contact/guardian: '+(e.message||'Please try again.'));}};
 })();
 </script>
+<!-- ERECPASS CHAT VISIBILITY + DELETE FIX -->
+<script>
+(function(){
+'use strict';
+const chatFixState={timer:null};
+function chatClient(){return window.erecpassSupabase;}
+async function refreshPatientChat(){
+  try{
+    if(currentSession?.role!=='patient'||!chatClient()) return;
+    if(typeof window.renderPatientChatMessages==='function') await window.renderPatientChatMessages();
+  }catch(e){console.error('[ERecPass] Chat refresh failed:',e);}
+}
+async function refreshAdminChat(){
+  try{
+    if(!['admin','staff'].includes(currentSession?.role)||!chatClient()) return;
+    if(typeof window.renderAdminChatMessages==='function' && window.sessionStorage?.getItem('erecpassSelectedChatPatient')){
+      await window.renderAdminChatMessages();
+    }
+    if(typeof window.renderAdminPatientChatList==='function') await window.renderAdminPatientChatList();
+  }catch(e){console.error('[ERecPass] Admin chat refresh failed:',e);}
+}
+function startChatRefresh(){
+  if(chatFixState.timer) clearInterval(chatFixState.timer);
+  chatFixState.timer=setInterval(function(){
+    if(currentSession?.role==='patient') refreshPatientChat();
+    else if(['admin','staff'].includes(currentSession?.role)) refreshAdminChat();
+  },3000);
+}
+function bootChatFix(){
+  startChatRefresh();
+  if(currentSession?.role==='patient') refreshPatientChat();
+  else if(['admin','staff'].includes(currentSession?.role)) refreshAdminChat();
+}
+document.addEventListener('DOMContentLoaded',bootChatFix);
+window.addEventListener('pageshow',bootChatFix);
+window.addEventListener('erecpass:session-ready',bootChatFix);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)bootChatFix();},false);
+
+// Fix the existing patient-chat boot typo without replacing the existing chat system.
+window.addEventListener('erecpass:session-ready',function(){
+  if(currentSession?.role==='patient') setTimeout(refreshPatientChat,250);
+});
+
+// Keep delete-message behavior available for every rendered message.
+document.addEventListener('click',function(ev){
+  const btn=ev.target?.closest?.('[data-delete-message]');
+  if(!btn||typeof window.deleteErecpassMessage!=='function') return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+  window.deleteErecpassMessage(btn.getAttribute('data-delete-message'),btn);
+},true);
+})();
+</script>
 </body>
 </html>
