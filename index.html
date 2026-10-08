@@ -4310,6 +4310,7 @@ function renderList(patients) {
 <div class="flex items-center gap-2">
 <strong class="text-white text-sm font-tech">${p.fullName || "Unnamed Patient"}</strong>
 <span class="text-[10px] px-2 py-0.5 rounded font-bold ${p.status === 'Green' ? 'bg-emerald-950 text-emerald-300' : (p.status === 'Yellow' ? 'bg-amber-950 text-amber-300' : 'bg-rose-950 text-rose-300')}">${p.status || "Green"}</span>
+<span class="text-[10px] px-2 py-0.5 rounded font-bold ${p.active === false ? 'bg-rose-950 text-rose-300' : 'bg-emerald-950 text-emerald-300'}">${p.active === false ? 'Inactive' : 'Active'}</span>
 </div>
 <p class="text-xs text-slate-400 mt-0.5">ID: ${p.id || ""} · Email: ${p.email || ""}</p>
 <p class="text-[11px] text-slate-400">Guardian Contact: ${p.guardianNum || 'None'}</p>
