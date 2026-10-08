@@ -8091,19 +8091,6 @@ window.renderAdminPatientChatList=async function(){
     box.innerHTML='<div class="text-xs text-rose-300 p-2">Unable to load patient list. Please refresh.</div>';
   }
 };
-window.selectAdminChatPatient=async function(uid){
-  window.sessionStorage?.setItem('erecpassSelectedChatPatient',uid);
-  const header=document.getElementById('adminSelectedChatHeader');
-  if(header){
-    const [p,s]=await Promise.all([
-      window.erecpassSupabase.from('patients').select('full_name,email').eq('user_id',uid).maybeSingle(),
-      window.erecpassSupabase.from('staff').select('name,email').eq('user_id',uid).maybeSingle()
-    ]);
-    const person=p.data||s.data;
-    header.innerText='Chatting with: '+(person?.full_name||person?.name||'User')+' · '+(person?.email||'');
-  }
-  if(typeof window.renderAdminChatMessages==='function') await window.renderAdminChatMessages();
-};
 const originalShowStaff=window.showStaffApp;
 window.showStaffApp=originalShowStaff;
 document.addEventListener('click',function(e){const b=e.target?.closest?.('#staffApp'); if(b) setTimeout(renderStaffAdminChat,300);},true);
