@@ -7796,5 +7796,28 @@ document.addEventListener('click',function(ev){
 },true);
 })();
 </script>
+
+<!-- ERECPASS PATIENT PROFILE CLOUD SAVE FIX -->
+<script>
+(function(){
+  async function savePatientField(field,value,successMessage){
+    const client=window.erecpassSupabase, patientId=currentSession?.data?.id;
+    if(!client||!patientId) throw new Error('Patient account service is not ready. Please refresh and try again.');
+    const clean=String(value??'').trim();
+    if(!clean) throw new Error(field==='full_name'?'Please enter your full name.':'Please enter the emergency contact/guardian.');
+    const payload={}; payload[field]=clean;
+    const {data:updated,error}=await client.from('patients').update(payload).eq('id',String(patientId)).select('id,full_name,guardian_num').maybeSingle();
+    if(error) throw error;
+    if(!updated) throw new Error('Your profile was not updated. Please refresh and try again.');
+    const patients=JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)||'[]'), local=patients.find(p=>String(p.id)===String(patientId));
+    if(local){if(field==='full_name')local.fullName=updated.full_name;if(field==='guardian_num')local.guardianNum=updated.guardian_num;epStore.setItem(DB_KEYS.PATIENTS,JSON.stringify(patients));}
+    if(currentSession?.data){if(field==='full_name')currentSession.data.fullName=updated.full_name;if(field==='guardian_num')currentSession.data.guardianNum=updated.guardian_num;epStore.setItem(DB_KEYS.SESSION,JSON.stringify(currentSession));}
+    if(typeof refreshPatientPortal==='function') await refreshPatientPortal();
+    alert(successMessage);
+  }
+  window.saveProfileName=async function(){try{await savePatientField('full_name',document.getElementById('editProfileNameInput')?.value,'Name updated successfully.');}catch(e){console.error('[ERecPass] Save patient name:',e);alert('Could not save your name: '+(e.message||'Please try again.'));}};
+  window.saveGuardianContact=async function(){try{await savePatientField('guardian_num',document.getElementById('editGuardianContactInput')?.value,'Emergency contact/guardian updated successfully.');}catch(e){console.error('[ERecPass] Save guardian contact:',e);alert('Could not save the emergency contact/guardian: '+(e.message||'Please try again.'));}};
+})();
+</script>
 </body>
 </html>
