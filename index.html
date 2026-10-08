@@ -4351,14 +4351,14 @@ async function renderAdminPatients() {
       <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-cyan-500/20">
         <div>
           <div class="flex items-center gap-2">
-            <strong class="text-white text-sm font-tech">${esc(p.fullName)}</strong>
-            <span class="text-[10px] px-2 py-0.5 rounded font-bold ${p.status === 'Green' ? 'bg-emerald-950 text-emerald-300' : (p.status === 'Yellow' ? 'bg-amber-950 text-amber-300' : 'bg-rose-950 text-rose-300')}">${esc(p.status)}</span>
+            <strong class="text-white text-sm font-tech">${adminPatientEsc(p.fullName)}</strong>
+            <span class="text-[10px] px-2 py-0.5 rounded font-bold ${p.status === 'Green' ? 'bg-emerald-950 text-emerald-300' : (p.status === 'Yellow' ? 'bg-amber-950 text-amber-300' : 'bg-rose-950 text-rose-300')}">${adminPatientEsc(p.status)}</span>
             ${p.active === false ? '<span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-bold">INACTIVE</span>' : ''}
           </div>
-          <p class="text-xs text-slate-400 mt-0.5">ID: ${esc(p.id)} · Email: ${esc(p.email)}</p>
-          <p class="text-[11px] text-slate-400">Guardian Contact: ${esc(p.guardianNum || 'None')}</p>
+          <p class="text-xs text-slate-400 mt-0.5">ID: ${adminPatientEsc(p.id)} · Email: ${adminPatientEsc(p.email)}</p>
+          <p class="text-[11px] text-slate-400">Guardian Contact: ${adminPatientEsc(p.guardianNum || 'None')}</p>
         </div>
-        <button onclick="openAdminEditPatientModal('${esc(p.id)}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900 self-start sm:self-auto">Edit Patient File</button>
+        <button onclick="openAdminEditPatientModal('${adminPatientEsc(p.id)}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900 self-start sm:self-auto">Edit Patient File</button>
       </div>
     `).join('') : '<div class="text-xs text-slate-500 p-2">No patient records found.</div>';
 
