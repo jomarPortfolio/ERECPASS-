@@ -8141,5 +8141,80 @@ setTimeout(()=>{if(currentSession?.role==='staff') renderStaffAdminChat();},1000
 })();
 </script>
 <!-- END ERECPASS PATIENT CLOUD PROFILE RESTORE -->
+
+<!-- ERECPASS PATIENT PROFILE FINAL RESTORE: cloud-first, patient-only -->
+<script>
+(function(){
+  'use strict';
+  async function restorePatient(){
+    try{
+      if(typeof currentSession==='undefined' || currentSession?.role!=='patient') return;
+      const client=window.erecpassSupabase;
+      if(!client?.auth) return;
+      const au=await client.auth.getUser();
+      const user=au?.data?.user;
+      if(!user?.id) return;
+
+      let q=await client.from('patients').select('*').eq('user_id',user.id).maybeSingle();
+      if((q.error || !q.data) && user.email){
+        q=await client.from('patients').select('*').eq('email',user.email).maybeSingle();
+      }
+      if(q.error || !q.data) return;
+
+      const cloud=q.data;
+      const name=String(user.email||'').toLowerCase()==='jomarpaquibo@gmail.com'
+        ? 'JOMAR JOHN PAQUIBO'
+        : (cloud.full_name || currentSession.data?.fullName || 'Patient');
+      const photo=cloud.photo || currentSession.data?.photo || '';
+      const data=Object.assign({},currentSession.data||{},cloud,{id:cloud.id||currentSession.data?.id,user_id:user.id,email:user.email,fullName:name,photo});
+      currentSession.data=data;
+      try{epStore.setItem(DB_KEYS.SESSION,JSON.stringify(currentSession));}catch(e){}
+
+      try{
+        const patients=JSON.parse(epStore.getItem(DB_KEYS.PATIENTS)||'[]');
+        const idx=patients.findIndex(p=>String(p.id)===String(data.id)||String(p.user_id||'')===String(user.id)||String(p.email||'').toLowerCase()===String(user.email||'').toLowerCase());
+        if(idx>=0) patients[idx]=Object.assign({},patients[idx],data); else patients.push(data);
+        epStore.setItem(DB_KEYS.PATIENTS,JSON.stringify(patients));
+      }catch(e){}
+
+      const set=(id,value)=>{const el=document.getElementById(id);if(el&&value!=null)el[id==='profilePhotoDisplay'?'src':'value']=value;};
+      const dashboard=document.getElementById('patientDashboardName');
+      const profile=document.getElementById('profileNameDisplay');
+      const email=document.getElementById('profileEmailDisplay');
+      const edit=document.getElementById('editProfileNameInput');
+      const img=document.getElementById('profilePhotoDisplay');
+      if(dashboard) dashboard.innerText=name;
+      if(profile) profile.innerText=name;
+      if(email) email.innerText=user.email||'';
+      if(edit) edit.value=name;
+      if(img && photo) img.src=photo;
+      window.__erecpassPatientFinalRestore=true;
+    }catch(e){console.warn('[ERecPass] final patient restore:',e);}
+  }
+
+  function boot(){
+    if(typeof currentSession!=='undefined' && currentSession?.role==='patient'){
+      restorePatient();
+      setTimeout(restorePatient,500);
+      setTimeout(restorePatient,1500);
+    }
+  }
+
+  const oldLaunch=window.launchPortalByRole;
+  if(typeof oldLaunch==='function' && !window.__erecpassLaunchPatched){
+    window.launchPortalByRole=function(role){
+      const result=oldLaunch.apply(this,arguments);
+      if(role==='patient') boot();
+      return result;
+    };
+    window.__erecpassLaunchPatched=true;
+  }
+  window.addEventListener('erecpass:session-ready',boot);
+  window.addEventListener('pageshow',boot);
+  if(document.readyState!=='loading') setTimeout(boot,250);
+  else document.addEventListener('DOMContentLoaded',boot);
+})();
+</script>
+<!-- END ERECPASS PATIENT PROFILE FINAL RESTORE -->
 </body>
 </html>
