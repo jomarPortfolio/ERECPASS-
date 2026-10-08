@@ -3749,15 +3749,23 @@ try {
 
 }
 
-function saveProfileName() {
+async function saveProfileName() {
 
-const name = document.getElementById('editProfileNameInput').value;
+const name = document.getElementById('editProfileNameInput')?.value.trim();
 
-if (!name) return;
+if (!name) {
+  alert("Please enter your full name.");
+  return;
+}
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS));
+const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
 
-const p = patients.find(i => i.id === currentSession.data.id);
+const p = patients.find(i => String(i.id) === String(currentSession?.data?.id));
+
+if (!p) {
+  alert("Patient profile could not be found. Please log in again.");
+  return;
+}
 
 p.fullName = name;
 
@@ -3767,19 +3775,36 @@ currentSession.data.fullName = name;
 
 epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
 
-refreshPatientPortal();
+try {
+  if (typeof window.erecpassCloudFlush === "function") await window.erecpassCloudFlush();
+} catch (error) {
+  console.error("ERecPass: Save Name cloud sync failed", error);
+  alert("Name was updated on this screen, but the cloud save failed. Please try again.");
+  return;
+}
 
+refreshPatientPortal();
 alert("Name updated successfully.");
 
 }
 
-function saveGuardianContact() {
+async function saveGuardianContact() {
 
-const num = document.getElementById('editGuardianContactInput').value;
+const num = document.getElementById('editGuardianContactInput')?.value.trim();
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS));
+if (!num) {
+  alert("Please enter the guardian emergency contact number.");
+  return;
+}
 
-const p = patients.find(i => i.id === currentSession.data.id);
+const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
+
+const p = patients.find(i => String(i.id) === String(currentSession?.data?.id));
+
+if (!p) {
+  alert("Patient profile could not be found. Please log in again.");
+  return;
+}
 
 p.guardianNum = num;
 
@@ -3789,35 +3814,68 @@ currentSession.data.guardianNum = num;
 
 epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
 
-refreshPatientPortal();
+try {
+  if (typeof window.erecpassCloudFlush === "function") await window.erecpassCloudFlush();
+} catch (error) {
+  console.error("ERecPass: Guardian contact cloud sync failed", error);
+  alert("Guardian contact was updated on this screen, but the cloud save failed. Please try again.");
+  return;
+}
 
+refreshPatientPortal();
 alert("Guardian contact updated.");
 
 }
 
 function handleProfilePhotoUpload(e) {
 
-const file = e.target.files[0];
+const file = e?.target?.files?.[0];
 
 if (!file) return;
 
+if (!file.type || !file.type.startsWith("image/")) {
+  alert("Please select an image file.");
+  return;
+}
+
 const reader = new FileReader();
 
-reader.onload = function(evt) {
+reader.onload = async function(evt) {
 
-const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS));
+const photo = evt.target?.result;
 
-const p = patients.find(i => i.id === currentSession.data.id);
+if (!photo) {
+  alert("The selected photo could not be read.");
+  return;
+}
 
-p.photo = evt.target.result;
+const patients = JSON.parse(epStore.getItem(DB_KEYS.PATIENTS) || "[]");
+
+const p = patients.find(i => String(i.id) === String(currentSession?.data?.id));
+
+if (!p) {
+  alert("Patient profile could not be found. Please log in again.");
+  return;
+}
+
+p.photo = photo;
 
 epStore.setItem(DB_KEYS.PATIENTS, JSON.stringify(patients));
 
-currentSession.data.photo = evt.target.result;
+currentSession.data.photo = photo;
 
 epStore.setItem(DB_KEYS.SESSION, JSON.stringify(currentSession));
 
+try {
+  if (typeof window.erecpassCloudFlush === "function") await window.erecpassCloudFlush();
+} catch (error) {
+  console.error("ERecPass: Profile photo cloud sync failed", error);
+  alert("Profile picture was updated on this screen, but the cloud save failed. Please try again.");
+  return;
+}
+
 refreshPatientPortal();
+alert("Profile picture updated successfully.");
 
 };
 
