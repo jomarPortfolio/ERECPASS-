@@ -4304,6 +4304,7 @@ function renderList(patients) {
   }
   filtered.forEach(p => {
     const safeId = String(p.id || "").replace(/'/g, "\\'");
+    const safeUserId = String(p.userId || "");
     container.innerHTML += `
 <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-cyan-500/20">
 <div>
@@ -4315,7 +4316,10 @@ function renderList(patients) {
 <p class="text-xs text-slate-400 mt-0.5">ID: ${p.id || ""} · Email: ${p.email || ""}</p>
 <p class="text-[11px] text-slate-400">Guardian Contact: ${p.guardianNum || 'None'}</p>
 </div>
-<button onclick="openAdminEditPatientModal('${safeId}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900 self-start sm:self-auto">Edit Patient File</button>
+<div class="flex gap-2 flex-wrap self-start sm:self-auto">
+<button type="button" onclick="selectAdminChatPatient('${safeUserId}')" class="px-3 py-1.5 bg-emerald-950 border border-emerald-400/40 text-emerald-300 text-xs font-tech font-bold rounded-xl hover:bg-emerald-900">Chat Patient</button>
+<button onclick="openAdminEditPatientModal('${safeId}')" class="px-3 py-1.5 bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-xs font-tech font-bold rounded-xl hover:bg-cyan-900">Edit Patient File</button>
+</div>
 </div>`;
   });
 }
@@ -8079,7 +8083,7 @@ window.renderAdminPatientChatList=async function(){
     // without a conversation are also listed so Admin can start a new chat.
     const pr=await client.from('patients').select('user_id,full_name,email,active').order('full_name',{ascending:true});
     if(pr.error) throw pr.error;
-    const patients=(pr.data||[]).filter(p=>p?.user_id&&p.active!==false);
+    const patients=(pr.data||[]).filter(p=>p?.user_id);
 
     const conversations=await client.from('message_conversations')
       .select('id,patient_id,status,updated_at')
