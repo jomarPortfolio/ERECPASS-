@@ -33,11 +33,11 @@
       if(pr.error)throw pr.error;
       if(!pr.data||pr.data.active===false){await sb().auth.signOut();role='anon';user=null;put(K.X,null);throw Error('Account is inactive or has no profile')}
       role=pr.data.role||'patient';
-      const tables=['patients','staff','appointments','announcements','help_center_messages','activity_logs'];
+      const tables=['patients','staff','appointments','announcements','help_center_messages'];
       const rs=await Promise.all(tables.map(t=>sb().from(t).select('*')));
       rs.forEach((r,i)=>{if(r.error)err('read '+tables[i],r.error)});
       const ps=(rs[0].error?[]:rs[0].data||[]).map(patient),ss=(rs[1].error?[]:rs[1].data||[]).map(staff);
-      put(K.P,ps);put(K.S,ss);put(K.B,(rs[2].error?[]:rs[2].data||[]).map(appt));put(K.N,(rs[3].error?[]:rs[3].data||[]).map(ann));put(K.C,(rs[4].error?[]:rs[4].data||[]).map(msg));put(K.L,(rs[5].error?[]:rs[5].data||[]).map(x=>({id:x.id,timestamp:x.created_at,text:x.event_text})));put(K.A,[]);
+      put(K.P,ps);put(K.S,ss);put(K.B,(rs[2].error?[]:rs[2].data||[]).map(appt));put(K.N,(rs[3].error?[]:rs[3].data||[]).map(ann));put(K.C,(rs[4].error?[]:rs[4].data||[]).map(msg));put(K.L,[]);put(K.A,[]);
       const data=role==='patient'?(ps.find(p=>p.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,fullName:pr.data.full_name}):role==='staff'?(ss.find(s=>s.user_id===u.id)||{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name}):{id:u.id,user_id:u.id,email:u.email,name:pr.data.full_name,fullName:pr.data.full_name};
       if(typeof currentSession!=='undefined'){
         currentSession={role,data};
@@ -51,7 +51,7 @@
       }
       if(channel)await sb().removeChannel(channel);
       channel=sb().channel('erecpass-sync-'+u.id);
-      ['patients','staff','appointments','announcements','help_center_messages','activity_logs','app_settings'].forEach(t=>channel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>{if(!loading)hydrate().catch(e=>err('realtime refresh',e))}));
+      ['patients','staff','appointments','announcements','help_center_messages','app_settings'].forEach(t=>channel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>{if(!loading)hydrate().catch(e=>err('realtime refresh',e))}));
       channel.subscribe();
     }finally{loading=false}
   }
@@ -170,7 +170,7 @@
       throw e;
     }
   }
-  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(![K.X,K.A].includes(k)&&user){queue=queue.then(()=>persist(k,old,n)).catch(e=>{err('write queue',e);throw e})}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&k!==K.T&&old!==undefined&&user)queue=queue.then(()=>persist(k,old,'[]')).catch(e=>{err('remove',e);throw e})},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
+  window.epStore={getItem(k){return cache.has(String(k))?cache.get(String(k)):null},setItem(k,v){k=String(k);const old=cache.get(k)??null,n=String(v);cache.set(k,n);if(![K.X,K.A,K.L].includes(k)&&user){queue=queue.then(()=>persist(k,old,n)).catch(e=>{err('write queue',e);throw e})}},removeItem(k){k=String(k);const old=cache.get(k);cache.delete(k);if(k!==K.X&&k!==K.T&&k!==K.L&&old!==undefined&&user)queue=queue.then(()=>persist(k,old,'[]')).catch(e=>{err('remove',e);throw e})},clear(){cache.clear()},key(i){return [...cache.keys()][i]??null},get length(){return cache.size},_put:put};
   window.erecpassCloudFlush=()=>queue;
   window.erecpassCloudHydrate=hydrate;
   const profileFor=async u=>{const r=await sb().from('profiles').select('id,full_name,role,active').eq('id',u.id).single();if(r.error)throw r.error;if(r.data.active===false)throw Error('This account is deactivated');return r.data};
