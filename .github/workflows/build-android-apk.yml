@@ -254,6 +254,21 @@ jobs:
             }
           }
           JAVA
+          # Load the Admin APK compatibility patch last so it overrides only the login handler.
+          # This APK-only injection leaves the web page and unrelated UI/features unchanged.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("www/index.html")
+          s = p.read_text()
+          tag = '<script src="./admin-login-apk-fix.js"></script>'
+          if tag not in s:
+              closing = s.lower().rfind("</body>")
+              if closing < 0:
+                  raise SystemExit("Cannot inject Admin login patch: </body> not found")
+              s = s[:closing] + tag + "\n" + s[closing:]
+              p.write_text(s)
+          print("Admin APK login compatibility patch included.")
+          PY
           npx cap sync android
           # Create a short, gentle reminder tone for Android notification channels.
           python3 - <<'PY'

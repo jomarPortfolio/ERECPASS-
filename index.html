@@ -4315,18 +4315,43 @@ async function downloadPatientQR() {
   }
 
   if (!qrDisplay.querySelector('canvas, img')) generatePatientQR();
+  let canvas = qrDisplay.querySelector('canvas');
+  if (!canvas && typeof QRCode !== 'undefined') {
+    generatePatientQR();
+    canvas = qrDisplay.querySelector('canvas');
+  }
   const fileName = 'ERecPass-Patient-QR-' + String(currentSession.data.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '.png';
 
   try {
-    // Prefer a locally generated canvas; it does not require CORS or internet access.
-    let canvas = qrDisplay.querySelector('canvas');
-    if (!canvas && typeof QRCode !== 'undefined') {
-      generatePatientQR();
-      canvas = qrDisplay.querySelector('canvas');
+    // Android WebView: save the local QR canvas directly. This avoids Blob/toBlob
+    // support differences and does not depend on CORS or an external QR image host.
+    if (window.ERecPassNative && typeof window.ERecPassNative.savePng === 'function') {
+      if (!canvas) throw new Error('Local QR canvas is not ready. Please tap Generate QR and try again.');
+      const dataUrl = canvas.toDataURL('image/png');
+      const comma = dataUrl.indexOf(',');
+      if (comma < 0) throw new Error('Could not encode QR image');
+      const nativeResult = window.ERecPassNative.savePng(dataUrl.slice(comma + 1), fileName);
+      if (String(nativeResult).startsWith('OK:')) {
+        alert('Patient QR saved to Downloads/ERecPass/' + fileName);
+        return;
+      }
+      throw new Error(String(nativeResult || 'Android could not save the QR image'));
     }
+
+    // Browser fallback: use the local canvas where possible, otherwise fetch the QR image.
     let blob = null;
     if (canvas) {
       blob = await new Promise((resolve, reject) => {
+        if (typeof canvas.toBlob !== 'function') {
+          try {
+            const dataUrl = canvas.toDataURL('image/png');
+            const binary = atob(dataUrl.split(',')[1]);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            resolve(new Blob([bytes], { type: 'image/png' }));
+          } catch (e) { reject(e); }
+          return;
+        }
         canvas.toBlob(value => value ? resolve(value) : reject(new Error('Could not create QR image')), 'image/png');
       });
     } else {
@@ -4337,29 +4362,6 @@ async function downloadPatientQR() {
       blob = await response.blob();
     }
 
-    // Native Android APK: write the PNG directly into the public Downloads folder.
-    // This avoids Android WebView's unsupported <a download> behavior.
-    if (window.ERecPassNative && typeof window.ERecPassNative.savePng === 'function') {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = String(reader.result || '');
-          const comma = result.indexOf(',');
-          if (comma < 0) reject(new Error('Could not encode QR image'));
-          else resolve(result.slice(comma + 1));
-        };
-        reader.onerror = () => reject(new Error('Could not read QR image'));
-        reader.readAsDataURL(blob);
-      });
-      const nativeResult = window.ERecPassNative.savePng(base64, fileName);
-      if (String(nativeResult).startsWith('OK:')) {
-        alert('Patient QR saved to Downloads/ERecPass/' + fileName);
-        return;
-      }
-      throw new Error(String(nativeResult || 'Android could not save the QR image'));
-    }
-
-    // Browser fallback for the web version and older builds.
     if (navigator.share && typeof File !== 'undefined') {
       const file = new File([blob], fileName, { type: 'image/png' });
       if (!navigator.canShare || navigator.canShare({ files: [file] })) {
@@ -4382,15 +4384,15 @@ async function downloadPatientQR() {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
-    alert("QR download requested. If it does not appear in Downloads, choose Save to Files from the Android share option.");
+    alert("QR download requested. Check your browser Downloads folder or choose Save from the share option.");
   } catch (error) {
     console.warn('ERecPass QR download fallback:', error);
     const qrImg = qrDisplay.querySelector('img');
     if (qrImg?.src) {
       window.open(qrImg.src, '_blank', 'noopener');
-      alert("Direct saving was blocked by Android. Long-press the QR image and choose Download image.");
+      alert("Direct saving was blocked. Long-press the QR image and choose Download image.");
     } else {
-      alert("Unable to download the QR code right now. Please check your internet connection and try again.");
+      alert("Unable to download the QR code right now. Please generate the QR again and retry.");
     }
   }
 }
@@ -4916,67 +4918,97 @@ if (!window.erecpassStaffDashboardRefreshTimer) {
 }
 
 function startStaffQrScanner() {
-const reader = document.getElementById('staffQrReader');
-const card = document.getElementById('scannedPatientCard');
-if (card) card.classList.add('hidden');
-if (!reader) { alert('QR scanner area is not available.'); return; }
-if (typeof Html5Qrcode === 'undefined') {
-  alert('QR camera scanner is still loading. Please wait a moment and try again.');
-  return;
-}
-
-const openAndroidCameraCapture = () => {
-  let input = document.getElementById('staffCameraCapture');
-  if (!input) {
-    input = document.createElement('input');
-    input.type = 'file';
-    input.id = 'staffCameraCapture';
-    input.accept = 'image/*';
-    input.setAttribute('capture', 'environment');
-    input.style.position = 'fixed';
-    input.style.left = '-9999px';
-    input.style.width = '1px';
-    input.style.height = '1px';
-    input.style.opacity = '0';
-    document.body.appendChild(input);
-
-    input.addEventListener('change', async () => {
-      const file = input.files && input.files[0];
-      input.value = '';
-      if (!file) return;
-
-      try {
-        const imageScanner = new Html5Qrcode('staffQrReader');
-        const decodedText = await imageScanner.scanFile(file, true);
-        try { imageScanner.clear(); } catch (e) {}
-        handleScannedQrText(decodedText);
-      } catch (scanError) {
-        console.error('ERecPass captured QR scan error:', scanError);
-        alert('Hindi mabasa ang QR code. Kumuha ng malinaw na larawan ng buong QR code at subukan ulit.');
-      }
-    });
+  const reader = document.getElementById('staffQrReader');
+  const card = document.getElementById('scannedPatientCard');
+  if (card) card.classList.add('hidden');
+  if (!reader) {
+    alert('QR scanner area is not available.');
+    return;
+  }
+  if (typeof Html5Qrcode === 'undefined') {
+    alert('QR camera scanner is still loading. Please wait a moment and try again.');
+    return;
   }
 
-  // IMPORTANT: keep this call directly inside the button click.
-  // Android browsers may block camera/file capture if it is triggered after an async permission check.
-  input.click();
-};
+  const openAndroidCameraCapture = () => {
+    let input = document.getElementById('staffCameraCapture');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.id = 'staffCameraCapture';
+      input.accept = 'image/*';
+      input.setAttribute('capture', 'environment');
+      Object.assign(input.style, {
+        position: 'fixed', left: '-9999px', width: '1px',
+        height: '1px', opacity: '0'
+      });
+      document.body.appendChild(input);
+      input.addEventListener('change', async () => {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        let imageScanner = null;
+        try {
+          imageScanner = new Html5Qrcode('staffQrReader');
+          const decodedText = await imageScanner.scanFile(file, true);
+          try { imageScanner.clear(); } catch (e) {}
+          await stopStaffQrScanner();
+          await handleScannedQrText(decodedText);
+        } catch (scanError) {
+          console.error('ERecPass captured QR scan error:', scanError);
+          try { if (imageScanner) imageScanner.clear(); } catch (e) {}
+          alert('Hindi mabasa ang QR code. Kumuha ng malinaw na larawan ng buong QR code at subukan ulit.');
+        }
+      });
+    }
+    input.click();
+  };
 
-const cleanupScanner = async () => {
-  if (!staffHtml5QrCode) return;
-  try { await staffHtml5QrCode.stop(); } catch (e) {}
-  try { staffHtml5QrCode.clear(); } catch (e) {}
+  const startLiveCamera = async () => {
+    await stopStaffQrScanner();
+    try {
+      staffHtml5QrCode = new Html5Qrcode('staffQrReader');
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || !cameras.length) throw new Error('No camera is available');
+      const preferred = cameras.find(camera => /back|rear|environment/i.test(camera.label || '')) || cameras[0];
+      await staffHtml5QrCode.start(
+        preferred.id,
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        async decodedText => {
+          const scanner = staffHtml5QrCode;
+          staffHtml5QrCode = null;
+          try { if (scanner) await scanner.stop(); } catch (e) {}
+          try { if (scanner) scanner.clear(); } catch (e) {}
+          await handleScannedQrText(decodedText);
+        },
+        () => {}
+      );
+    } catch (cameraError) {
+      console.warn('[ERecPass] Live QR camera unavailable; opening Android camera capture fallback.', cameraError);
+      try {
+        if (staffHtml5QrCode) {
+          try { await staffHtml5QrCode.stop(); } catch (e) {}
+          try { staffHtml5QrCode.clear(); } catch (e) {}
+        }
+      } catch (e) {}
+      staffHtml5QrCode = null;
+      openAndroidCameraCapture();
+    }
+  };
+
+  // Prefer live scanning; retain Android camera capture as a fallback.
+  void startLiveCamera();
+}
+
+async function stopStaffQrScanner() {
+  const scanner = staffHtml5QrCode;
   staffHtml5QrCode = null;
-};
-
-// Use Android's native camera capture first. This avoids the site's getUserMedia
-// permission wall in browsers/custom tabs that block web camera access.
-openAndroidCameraCapture();
-
-// Keep the live scanner available for browsers that support it after a successful
-// native capture is cancelled/returned. The native capture path is the primary
-// Android-compatible path and does not change the existing UI.
-return;
+  if (scanner) {
+    try { await scanner.stop(); } catch (e) {}
+    try { scanner.clear(); } catch (e) {}
+  }
+  const reader = document.getElementById('staffQrReader');
+  if (reader) reader.innerHTML = '';
 }
 
 async function handleScannedQrText(text) {
