@@ -9447,6 +9447,39 @@ function togglePatientMoreNav() {
 :root:not(.ep-dark) .text-glow{ text-shadow:none!important }
 :root:not(.ep-dark) .text-glow-red{ text-shadow:none!important }
 </style>
+
+<style id="erecpass-blue-to-green-overrides">
+/* Visual-only color mapping for blue-themed UI utilities. Preserve status colors and action handlers. */
+:root:not(.ep-dark) [class*="bg-blue-"]:not([class*="health"]):not([class*="status"]),
+:root:not(.ep-dark) [class*="bg-sky-"]:not([class*="health"]):not([class*="status"]),
+:root:not(.ep-dark) [class*="bg-indigo-"]:not([class*="health"]):not([class*="status"]){
+  background-color:#16803c!important;
+}
+:root:not(.ep-dark) [class*="text-blue-"],
+:root:not(.ep-dark) [class*="text-sky-"],
+:root:not(.ep-dark) [class*="text-indigo-"]{color:#006400!important}
+:root:not(.ep-dark) [class*="border-blue-"],
+:root:not(.ep-dark) [class*="border-sky-"],
+:root:not(.ep-dark) [class*="border-indigo-"]{border-color:rgba(0,100,0,.28)!important}
+:root:not(.ep-dark) [class*="ring-blue-"],
+:root:not(.ep-dark) [class*="ring-sky-"],
+:root:not(.ep-dark) [class*="ring-indigo-"]{--tw-ring-color:rgba(0,100,0,.35)!important}
+:root.ep-dark [class*="bg-blue-"]:not([class*="health"]):not([class*="status"]),
+:root.ep-dark [class*="bg-sky-"]:not([class*="health"]):not([class*="status"]),
+:root.ep-dark [class*="bg-indigo-"]:not([class*="health"]):not([class*="status"]){
+  background-color:#14532d!important;
+}
+:root.ep-dark [class*="text-blue-"],
+:root.ep-dark [class*="text-sky-"],
+:root.ep-dark [class*="text-indigo-"]{color:#86efac!important}
+:root.ep-dark [class*="border-blue-"],
+:root.ep-dark [class*="border-sky-"],
+:root.ep-dark [class*="border-indigo-"]{border-color:rgba(34,197,94,.35)!important}
+:root.ep-dark [class*="ring-blue-"],
+:root.ep-dark [class*="ring-sky-"],
+:root.ep-dark [class*="ring-indigo-"]{--tw-ring-color:rgba(34,197,94,.4)!important}
+</style>
+
 <!-- END ERECPASS LIGHT GREEN THEME PROPOSAL -->
 
 </body>
