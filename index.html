@@ -1357,6 +1357,59 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   }
 </style>
 
+<!-- ERecPass app-wide green button text contrast override -->
+<style id="erecpass-green-button-white-text">
+  /* Keep all green action buttons readable across the entire app, including appointments. */
+  button.primary-btn,
+  button[class*="bg-green-"],
+  button[class*="from-green-"],
+  button[class*="to-green-"],
+  button[class*="border-green-"],
+  button[class*="bg-emerald-"],
+  button[class*="from-emerald-"],
+  button[class*="to-emerald-"],
+  button[class*="bg-lime-"],
+  button[class*="from-lime-"],
+  button[class*="to-lime-"],
+  button[class*="bg-teal-"],
+  button[class*="from-teal-"],
+  button[class*="to-teal-"],
+  button[class*="bg-green"],
+  button[class*="green-btn"],
+  button[class*="btn-green"],
+  button[class*="success-btn"],
+  button[class*="approve-btn"],
+  button[class*="confirm-btn"],
+  button[style*="background: #5ABA4A"],
+  button[style*="background-color: #5ABA4A"],
+  button[style*="background:#5ABA4A"],
+  button[style*="background-color:#5ABA4A"] {
+    color: #FFFFFF !important;
+    -webkit-text-fill-color: #FFFFFF !important;
+  }
+  button.primary-btn *,
+  button[class*="bg-green-"] *,
+  button[class*="from-green-"] *,
+  button[class*="to-green-"] *,
+  button[class*="bg-emerald-"] *,
+  button[class*="from-emerald-"] *,
+  button[class*="to-emerald-"] *,
+  button[class*="bg-lime-"] *,
+  button[class*="from-lime-"] *,
+  button[class*="to-lime-"] *,
+  button[class*="bg-teal-"] *,
+  button[class*="from-teal-"] *,
+  button[class*="to-teal-"] *,
+  button[class*="green-btn"] *,
+  button[class*="btn-green"] *,
+  button[class*="success-btn"] *,
+  button[class*="approve-btn"] *,
+  button[class*="confirm-btn"] * {
+    color: #FFFFFF !important;
+    -webkit-text-fill-color: #FFFFFF !important;
+  }
+</style>
+
 </head>
 
 <body class="bg-tech-grid min-h-screen relative overflow-x-hidden select-none">
