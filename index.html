@@ -9388,5 +9388,66 @@ function togglePatientMoreNav() {
 
 <script src="./medication-reminders.js"></script>
 
+
+<!-- ERECPASS LIGHT GREEN THEME PROPOSAL: visual-only; preserves existing handlers and dark mode -->
+<style id="erecpass-light-green-theme">
+:root:not(.ep-dark){
+  --blue:#006400 !important;
+  --dark-blue:#f4faf3 !important;
+  --background:#f5faf2 !important;
+  --white:#ffffff !important;
+  --text:#174b2a !important;
+  --muted:#718078 !important;
+  --border:rgba(0,100,0,.22) !important;
+  --green:#16803c !important;
+  --green-bg:rgba(22,128,60,.09) !important;
+  --yellow:#d49b00 !important;
+  --yellow-bg:rgba(212,155,0,.10) !important;
+  --red:#b83b43 !important;
+  --red-bg:rgba(184,59,67,.09) !important;
+  --shadow:0 8px 24px rgba(0,100,0,.08) !important;
+}
+:root:not(.ep-dark) body{background:#f5faf2!important;color:#174b2a!important}
+:root:not(.ep-dark) .bg-tech-grid{background-color:#f5faf2!important;background-image:linear-gradient(rgba(0,100,0,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,100,0,.025) 1px,transparent 1px)!important;background-size:28px 28px!important}
+:root:not(.ep-dark) .glass-card,
+:root:not(.ep-dark) .auth-card,
+:root:not(.ep-dark) .health-card,
+:root:not(.ep-dark) .appointment-card,
+:root:not(.ep-dark) .list-card,
+:root:not(.ep-dark) .record-card,
+:root:not(.ep-dark) .medicine-card,
+:root:not(.ep-dark) .doctor-card,
+:root:not(.ep-dark) .large-card,
+:root:not(.ep-dark) .hospital-card,
+:root:not(.ep-dark) .qr-card,
+:root:not(.ep-dark) .profile-card,
+:root:not(.ep-dark) .help-card,
+:root:not(.ep-dark) .modal-card,
+:root:not(.ep-dark) .chat-card,
+:root:not(.ep-dark) .staff-health{
+ background:rgba(255,255,255,.97)!important;
+ color:#174b2a!important;
+ border:1px solid rgba(0,100,0,.16)!important;
+ box-shadow:0 8px 26px rgba(0,100,0,.07)!important;
+}
+:root:not(.ep-dark) .auth-card h1,
+:root:not(.ep-dark) .auth-card h2,
+:root:not(.ep-dark) .page-header h1,
+:root:not(.ep-dark) .welcome h1,
+:root:not(.ep-dark) h2,
+:root:not(.ep-dark) h3{color:#006400!important;text-shadow:none!important}
+:root:not(.ep-dark) input:not([type=checkbox]):not([type=radio]),
+:root:not(.ep-dark) textarea,
+:root:not(.ep-dark) select{background:#f8fbf7!important;color:#174b2a!important;border:1px solid rgba(0,100,0,.25)!important}
+:root:not(.ep-dark) input::placeholder,
+:root:not(.ep-dark) textarea::placeholder{color:#718078!important}
+:root:not(.ep-dark) button:not(.erecpass-status-approved):not(.erecpass-status-cancelled):not(.erecpass-action-delete):not(.erecpass-action-approved):not(.erecpass-action-cancel){
+ box-shadow:0 4px 12px rgba(0,100,0,.07);
+}
+:root:not(.ep-dark) .text-glow{ text-shadow:none!important }
+:root:not(.ep-dark) .text-glow-red{ text-shadow:none!important }
+</style>
+<!-- END ERECPASS LIGHT GREEN THEME PROPOSAL -->
+
 </body>
 </html>
