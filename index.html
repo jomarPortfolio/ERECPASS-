@@ -1272,6 +1272,62 @@ html.ep-dark #staffApp [class*="text-gray-"], html.ep-dark #adminApp [class*="te
  color:#edf4fb!important; -webkit-text-fill-color:#edf4fb!important;
 }
 </style>
+
+<!-- ERECPASS GREEN THEME OVERRIDE: #5ABA4A -->
+<style id="erecpass-green-theme-5aba4a">
+/* Visual-only palette override. No markup, event handlers, data logic, or backend files changed. */
+:root {
+  --blue: #5ABA4A !important;
+  --border: rgba(90, 186, 74, .28) !important;
+  --shadow: 0 0 25px rgba(90, 186, 74, .14), inset 0 0 15px rgba(90, 186, 74, .05) !important;
+}
+html, body { accent-color: #5ABA4A; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline-color: #5ABA4A !important;
+}
+/* Replace blue/cyan/sky Tailwind utility colors with the approved green. */
+[class*="bg-blue-"], [class*="bg-cyan-"], [class*="bg-sky-"] {
+  background-color: #5ABA4A !important;
+}
+[class*="text-blue-"], [class*="text-cyan-"], [class*="text-sky-"] {
+  color: #5ABA4A !important;
+  -webkit-text-fill-color: #5ABA4A !important;
+}
+[class*="border-blue-"], [class*="border-cyan-"], [class*="border-sky-"] {
+  border-color: #5ABA4A !important;
+}
+[class*="ring-blue-"], [class*="ring-cyan-"], [class*="ring-sky-"] {
+  --tw-ring-color: #5ABA4A !important;
+}
+[class*="from-blue-"], [class*="from-cyan-"], [class*="from-sky-"] {
+  --tw-gradient-from: #5ABA4A var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(90 186 74 / 0) var(--tw-gradient-to-position) !important;
+}
+[class*="via-blue-"], [class*="via-cyan-"], [class*="via-sky-"] {
+  --tw-gradient-to: rgb(90 186 74 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #5ABA4A var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+[class*="to-blue-"], [class*="to-cyan-"], [class*="to-sky-"] {
+  --tw-gradient-to: #5ABA4A var(--tw-gradient-to-position) !important;
+}
+/* Theme's custom blue/cyan accents and decorative glows. */
+.text-glow {
+  text-shadow: 0 0 10px rgba(90,186,74,.48), 0 0 20px rgba(90,186,74,.25) !important;
+}
+.glass-card, .auth-card, .health-card, .appointment-card, .list-card, .record-card,
+.medicine-card, .doctor-card, .large-card, .hospital-card, .qr-card, .profile-card,
+.help-card, .modal-card, .chat-card, .staff-health, .staff-grid button {
+  border-color: rgba(90,186,74,.24) !important;
+}
+.bg-tech-grid {
+  background-image:
+    linear-gradient(rgba(90,186,74,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(90,186,74,.035) 1px, transparent 1px) !important;
+}
+/* Preserve critical red Emergency / danger actions and green/yellow/red health status meaning. */
+</style>
+<!-- END ERECPASS GREEN THEME OVERRIDE -->
+
 </head>
 
 <body class="bg-tech-grid min-h-screen relative overflow-x-hidden select-none">
