@@ -1328,6 +1328,35 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 </style>
 <!-- END ERECPASS GREEN THEME OVERRIDE -->
 
+
+<!-- ERecPass login button color override: CSS only; preserves existing handlers and layout -->
+<style id="erecpass-login-green-buttons">
+  #loginPage button.primary-btn,
+  #staffLoginPage button.primary-btn {
+    background: #5ABA4A !important;
+    background-image: none !important;
+    border-color: #5ABA4A !important;
+    color: #FFFFFF !important;
+  }
+  #loginPage button[onclick="showStaffLogin()"] {
+    background: #5ABA4A !important;
+    background-image: none !important;
+    border-color: #5ABA4A !important;
+    color: #FFFFFF !important;
+  }
+  #loginPage button.primary-btn:hover,
+  #staffLoginPage button.primary-btn:hover,
+  #loginPage button[onclick="showStaffLogin()"]:hover {
+    background: #489B3B !important;
+    border-color: #489B3B !important;
+    color: #FFFFFF !important;
+  }
+  button[class*="bg-green-"],
+  a[class*="bg-green-"] {
+    color: #FFFFFF !important;
+  }
+</style>
+
 </head>
 
 <body class="bg-tech-grid min-h-screen relative overflow-x-hidden select-none">
