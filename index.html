@@ -9582,13 +9582,14 @@ function togglePatientMoreNav() {
   border-color:#ff8c00!important;
   background:rgba(255,140,0,.08)!important;
 }
-#adminApp .erecpass-lab-actions h3,
-#adminApp .erecpass-lab-actions h4,
-#adminApp .erecpass-lab-actions .section-title{
+#adminApp .erecpass-lab-actions > div:first-child label{
   color:#ff8c00!important;
 }
-#adminApp .erecpass-lab-actions .erecpass-lab-action-btn{
+#adminApp .erecpass-lab-actions .erecpass-lab-action-btn[onclick="addErecpassLabResult()"]{
   background:#228b22!important;color:#fff!important;border-color:#228b22!important;
+}
+#adminApp .erecpass-lab-actions .erecpass-lab-action-btn[onclick^="deleteErecpassLabResult("]{
+  background:#ff0000!important;color:#fff!important;border-color:#ff0000!important;
 }
 #adminApp #erecpassAdminAccountManagementBtn i{color:#fff!important}
 </style>
