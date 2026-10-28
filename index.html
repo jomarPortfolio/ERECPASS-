@@ -1272,6 +1272,151 @@ html.ep-dark #staffApp [class*="text-gray-"], html.ep-dark #adminApp [class*="te
  color:#edf4fb!important; -webkit-text-fill-color:#edf4fb!important;
 }
 </style>
+
+<!-- ERecPass requested green/red/orange UI palette — CSS only; no app logic changed -->
+<style id="erecpass-requested-color-palette">
+:root {
+  --erecpass-green: #228B22;
+  --erecpass-red: #FF0000;
+  --erecpass-orange: #FF8C00;
+}
+/* Shared green text, labels, headings and icons */
+.text-cyan-200,.text-cyan-300,.text-cyan-400,.text-cyan-500,
+.text-teal-200,.text-teal-300,.text-teal-400,
+.text-emerald-300,.text-emerald-400,.text-green-300,.text-green-400,
+.auth-card label,.auth-card label i,
+#splashScreen .font-tech,#loginPage .font-tech,#staffLoginPage .font-tech,
+#registerPage .font-tech,#helpCenterPage .font-tech,
+#patientApp .page-header h1,#patientApp .profile-card label,
+#patientApp #patientDigitalIDSection h3,
+#patientApp .patient-digital-id-label,
+#staffApp .font-tech.text-cyan-300,
+#adminApp .font-tech.text-cyan-300,
+#adminApp .admin-tab-content h2,
+#adminApp .admin-tab-content h3 {
+  color: var(--erecpass-green) !important;
+  -webkit-text-fill-color: var(--erecpass-green) !important;
+}
+/* Green buttons with white text/icons */
+.primary-btn,#enterAppBtn,
+#loginPage button[type="submit"],
+#staffLoginPage button[type="submit"],
+#registerPage button[type="submit"],
+#patientApp button[onclick^="saveProfile"],
+#patientApp button[onclick^="savePatient"],
+#patientApp button[onclick^="saveGuardian"],
+#patientApp button[onclick="generatePatientQR()"],
+#patientApp button[onclick="sendPatientMessage()"],
+#patientApp button[onclick="openGoogleMaps()"],
+#patientApp button[onclick="sendPatientMedicationReminder()"],
+#staffApp button[onclick="startStaffQrScanner()"],
+#staffApp button[onclick="sendStaffAdminMessage()"],
+#loginPage button[onclick="showStaffLogin()"],
+#patientApp .patient-nav-see-more {
+  background: var(--erecpass-green) !important;
+  background-image: none !important;
+  border-color: var(--erecpass-green) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+.primary-btn *,#enterAppBtn *,
+#loginPage button[type="submit"] *,
+#staffLoginPage button[type="submit"] *,
+#registerPage button[type="submit"] *,
+#patientApp button[onclick^="saveProfile"] *,
+#patientApp button[onclick^="savePatient"] *,
+#patientApp button[onclick^="saveGuardian"] *,
+#patientApp button[onclick="generatePatientQR()"] *,
+#staffApp button[onclick="startStaffQrScanner()"] *,
+#staffApp button[onclick="sendStaffAdminMessage()"] *,
+#loginPage button[onclick="showStaffLogin()"] * {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+/* Emergency, admin login and logout controls stay red with white content */
+#loginPage button[onclick="openEmergencyModal()"],
+#patientApp button[onclick="openEmergencyModal()"],
+#patientHoldEmergencyBtn,
+#adminLoginPage button[type="submit"],
+#patientApp button[onclick="logout()"],
+#staffApp header button[onclick="logout()"],
+#adminApp header button[onclick="logout()"],
+#patientApp button[onclick="flipPatientDigitalID()"],
+#staffApp button[onclick="stopStaffQrScanner()"] {
+  background: var(--erecpass-red) !important;
+  background-image: none !important;
+  border-color: var(--erecpass-red) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+#loginPage button[onclick="openEmergencyModal()"] *,
+#patientApp button[onclick="openEmergencyModal()"] *,
+#patientHoldEmergencyBtn *,
+#adminLoginPage button[type="submit"] *,
+#patientApp button[onclick="logout()"] *,
+#staffApp header button[onclick="logout()"] *,
+#adminApp header button[onclick="logout()"] *,
+#patientApp button[onclick="flipPatientDigitalID()"] *,
+#staffApp button[onclick="stopStaffQrScanner()"] * {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+/* Hospital Map and booking keep their requested green/orange identities */
+#loginPage button[onclick="openHospitalMapModal()"] {
+  background: var(--erecpass-green) !important;
+  border-color: var(--erecpass-green) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+#patientApp button[onclick="openBookAppointmentModal()"] {
+  background: var(--erecpass-orange) !important;
+  border-color: var(--erecpass-orange) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+/* Admin dashboard controls are orange with white text/icons; logout remains red */
+#adminApp main button:not([onclick="logout()"]) {
+  background-color: var(--erecpass-orange) !important;
+  background-image: none !important;
+  border-color: var(--erecpass-orange) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+#adminApp main button:not([onclick="logout()"]) * {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+#adminApp header button[onclick="logout()"] {
+  background: var(--erecpass-red) !important;
+  border-color: var(--erecpass-red) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+/* Preserve red emergency visual treatment and the orange admin action palette in dynamically rendered controls */
+#adminApp .admin-tab-content button,
+#adminApp #adminPatientsTableList button,
+#adminApp #adminStaffList button,
+#adminApp #adminAppointmentsList button {
+  background: var(--erecpass-orange) !important;
+  background-image: none !important;
+  border-color: var(--erecpass-orange) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+#adminApp .admin-tab-content button *,
+#adminApp #adminPatientsTableList button *,
+#adminApp #adminStaffList button *,
+#adminApp #adminAppointmentsList button * {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+/* Replace inline blue/purple nav icon colors without changing navigation behavior */
+#patientBottomNav button i,#patientBottomNav button span {
+  color: var(--erecpass-green) !important;
+  -webkit-text-fill-color: var(--erecpass-green) !important;
+}
+</style>
+
 </head>
 
 <body class="bg-tech-grid min-h-screen relative overflow-x-hidden select-none">
@@ -9390,3 +9535,63 @@ function togglePatientMoreNav() {
 
 </body>
 </html>
+
+
+<!-- ERECPASS ADMIN DASHBOARD BUTTON COLORS UPDATE 2026-10-28 -->
+<style id="erecpass-admin-dashboard-button-colors">
+/* Visual-only admin dashboard palette. Keep existing onclick handlers and DOM structure. */
+#adminApp header button[onclick="logout()"]{
+  background:#ff0000!important;color:#fff!important;border-color:#ff0000!important;
+}
+#adminApp button[onclick="switchAdminTab('patients')"],
+#adminApp button[onclick="switchAdminTab('staff')"],
+#adminApp button[onclick="switchAdminTab('announcements')"],
+#adminApp button[onclick="switchAdminTab('agreement')"],
+#adminApp button[onclick="switchAdminTab('appointments')"],
+#adminApp button[onclick="switchAdminTab('chat')"],
+#adminApp button[onclick="switchAdminTab('settings')"],
+#adminApp .primary-btn,
+#adminApp #adminPatientsTableList button[onclick^="openAdminEditPatientModal"],
+#adminApp #erecpassAdminAccountManagementBtn,
+#adminApp #adminEditPatientModal button[onclick="saveAdminPatientEdit()"],
+#adminApp #adminEditPatientModal button[onclick="saveAdminPatientRecord()"],
+#adminApp #adminEditPatientModal button[onclick="adminSavePatientRecord()"]{
+  background:#228b22!important;
+  background-image:none!important;
+  color:#fff!important;
+  border-color:#228b22!important;
+}
+#adminApp button[onclick="switchAdminTab('patients')"]:hover,
+#adminApp button[onclick="switchAdminTab('staff')"]:hover,
+#adminApp button[onclick="switchAdminTab('announcements')"]:hover,
+#adminApp button[onclick="switchAdminTab('agreement')"]:hover,
+#adminApp button[onclick="switchAdminTab('appointments')"]:hover,
+#adminApp button[onclick="switchAdminTab('chat')"]:hover,
+#adminApp button[onclick="switchAdminTab('settings')"]:hover,
+#adminApp .primary-btn:hover,
+#adminApp #adminPatientsTableList button[onclick^="openAdminEditPatientModal"]:hover,
+#adminApp #erecpassAdminAccountManagementBtn:hover{
+  background:#176b17!important;color:#fff!important;
+}
+#adminApp #adminEditPatientModal h2,
+#adminApp #adminEditPatientModal h3{
+  color:#228b22!important;
+}
+/* Lab-result action area is orange-accented; its existing controls remain functional. */
+#adminApp .erecpass-lab-actions{
+  border-color:#ff8c00!important;
+  background:rgba(255,140,0,.08)!important;
+}
+#adminApp .erecpass-lab-actions > div:first-child label{
+  color:#ff8c00!important;
+}
+#adminApp .erecpass-lab-actions .erecpass-lab-action-btn[onclick="addErecpassLabResult()"]{
+  background:#228b22!important;color:#fff!important;border-color:#228b22!important;
+}
+#adminApp .erecpass-lab-actions .erecpass-lab-action-btn[onclick^="deleteErecpassLabResult("]{
+  background:#ff0000!important;color:#fff!important;border-color:#ff0000!important;
+}
+#adminApp #erecpassAdminAccountManagementBtn i{color:#fff!important}
+</style>
+<!-- END ERECPASS ADMIN DASHBOARD BUTTON COLORS UPDATE -->
+
