@@ -9535,3 +9535,62 @@ function togglePatientMoreNav() {
 
 </body>
 </html>
+
+
+<!-- ERECPASS ADMIN DASHBOARD BUTTON COLORS UPDATE 2026-10-28 -->
+<style id="erecpass-admin-dashboard-button-colors">
+/* Visual-only admin dashboard palette. Keep existing onclick handlers and DOM structure. */
+#adminApp header button[onclick="logout()"]{
+  background:#ff0000!important;color:#fff!important;border-color:#ff0000!important;
+}
+#adminApp button[onclick="switchAdminTab('patients')"],
+#adminApp button[onclick="switchAdminTab('staff')"],
+#adminApp button[onclick="switchAdminTab('announcements')"],
+#adminApp button[onclick="switchAdminTab('agreement')"],
+#adminApp button[onclick="switchAdminTab('appointments')"],
+#adminApp button[onclick="switchAdminTab('chat')"],
+#adminApp button[onclick="switchAdminTab('settings')"],
+#adminApp .primary-btn,
+#adminApp #adminPatientsTableList button[onclick^="openAdminEditPatientModal"],
+#adminApp #erecpassAdminAccountManagementBtn,
+#adminApp #adminEditPatientModal button[onclick="saveAdminPatientEdit()"],
+#adminApp #adminEditPatientModal button[onclick="saveAdminPatientRecord()"],
+#adminApp #adminEditPatientModal button[onclick="adminSavePatientRecord()"]{
+  background:#228b22!important;
+  background-image:none!important;
+  color:#fff!important;
+  border-color:#228b22!important;
+}
+#adminApp button[onclick="switchAdminTab('patients')"]:hover,
+#adminApp button[onclick="switchAdminTab('staff')"]:hover,
+#adminApp button[onclick="switchAdminTab('announcements')"]:hover,
+#adminApp button[onclick="switchAdminTab('agreement')"]:hover,
+#adminApp button[onclick="switchAdminTab('appointments')"]:hover,
+#adminApp button[onclick="switchAdminTab('chat')"]:hover,
+#adminApp button[onclick="switchAdminTab('settings')"]:hover,
+#adminApp .primary-btn:hover,
+#adminApp #adminPatientsTableList button[onclick^="openAdminEditPatientModal"]:hover,
+#adminApp #erecpassAdminAccountManagementBtn:hover{
+  background:#176b17!important;color:#fff!important;
+}
+#adminApp #adminEditPatientModal h2,
+#adminApp #adminEditPatientModal h3{
+  color:#228b22!important;
+}
+/* Lab-result action area is orange-accented; its existing controls remain functional. */
+#adminApp .erecpass-lab-actions{
+  border-color:#ff8c00!important;
+  background:rgba(255,140,0,.08)!important;
+}
+#adminApp .erecpass-lab-actions h3,
+#adminApp .erecpass-lab-actions h4,
+#adminApp .erecpass-lab-actions .section-title{
+  color:#ff8c00!important;
+}
+#adminApp .erecpass-lab-actions .erecpass-lab-action-btn{
+  background:#228b22!important;color:#fff!important;border-color:#228b22!important;
+}
+#adminApp #erecpassAdminAccountManagementBtn i{color:#fff!important}
+</style>
+<!-- END ERECPASS ADMIN DASHBOARD BUTTON COLORS UPDATE -->
+
