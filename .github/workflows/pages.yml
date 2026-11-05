@@ -1,5 +1,6 @@
 name: Deploy ERecPass to GitHub Pages
-# Deployment health check refresh: 2026-10-08
+# Deployment health check refresh: 2026-11-05
+# Force Pages deployment validation; app source and functions unchanged.
 
 on:
   push:
