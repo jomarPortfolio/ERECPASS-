@@ -1272,6 +1272,7 @@ html.ep-dark #staffApp [class*="text-gray-"], html.ep-dark #adminApp [class*="te
  color:#edf4fb!important; -webkit-text-fill-color:#edf4fb!important;
 }
 </style>
+
 <!-- ERecPass requested green/red/orange UI palette — CSS only; no app logic changed -->
 <style id="erecpass-requested-color-palette">
 :root {
@@ -9530,6 +9531,9 @@ function togglePatientMoreNav() {
 </style>
 <!-- END ERECPASS APPOINTMENT STATUS COLORS -->
 
+<script src="./vendor/local-notifications.js"></script>
+<script src="./vendor/push-notifications.js"></script>
+<script src="./push-notifications-runtime.js"></script>
 <script src="./medication-reminders.js"></script>
 
 </body>
